@@ -244,6 +244,30 @@ breadth, and placing a barrel from the wrong one puts it in mid-air — the same
 class of bug the muzzle test was written for. Deck, wales and the entry-port
 steps all follow the surface at their own height for the same reason.
 
+`node tools/hull-test.js` checks each hull's triangles point *outward*. The
+lofted hull first shipped inside-out — the material is `FrontSide`, so 2,687 of
+2,688 faces were being culled and you looked straight through her side into the
+far one. That is invisible in a wireframe and invisible in a vertex count, and
+obvious only from exactly the right angle.
+
+### The guns you see are the guns that fire
+
+`muzzle()` spawns each ball from `gunPlacements(rig, gunsYouOwn)[i]`, so the
+client must draw the barrels from the same call with the same count. It used to
+build the hull's **full** complement and merely hide the surplus, so with three
+guns aboard you saw barrels 0–2 of a twenty-eight-gun layout — bunched at one
+end — while the host fired from three guns spread down the whole side.
+
+No headless test could catch that, because each half was individually
+consistent with `rig.js`. `node tools/gunfit-test.js` reads the world position
+of every drawn barrel out of the scene graph and compares it with where the host
+says that gun's ball starts, across twelve class-and-armament combinations.
+
+Guns also fill the **lowest deck first** now. Dividing what you own between all
+the decks put one on each and stacked them at a single station: a Man-of-War
+with three guns showed a vertical column amidships instead of three ports down
+her side.
+
 On top of that each class carries a **`features` list** of structures no other
 class has:
 
@@ -585,6 +609,8 @@ node tools/touch-test.js     # an emulated iPhone and iPad: helm, sail, tap-to-f
 npm run tune                 # per class: top speed, time to reach it, rate of turn
 node tools/aground-test.js   # run her ashore, then get off again
 node tools/balance-test.js   # what a beginner meets, and the Kraken's numbers
+node tools/hull-test.js      # every hull closed, facing outward, guns in her side
+node tools/gunfit-test.js    # balls leave the barrels you can SEE, at any armament
 node tools/rig-shots.js      # photograph all nine hulls, and count their sails
 node tools/bot.js 3          # 3 headless crew bots so you can test alone
 node tools/smoke.js          # headless browser: joins, checks the helm answers

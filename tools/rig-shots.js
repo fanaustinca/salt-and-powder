@@ -95,6 +95,22 @@ for (const cls of CLASSES) {
   });
   await page.screenshot({ path: `${OUT}/rig-${cls}.png` });
 
+  // A second shot from ahead and low. Everything on the stem — beakhead, ram,
+  // figurehead, bowsprit — is edge-on or hidden in the three-quarter view, and
+  // two of those shipped pointing backwards without it being visible there.
+  await page.evaluate(() => {
+    const { THREE, s, cam } = window.__rig;
+    const hull = s.children.find((c) => c.userData.hull);
+    const box = new THREE.Box3().setFromObject(hull);
+    const size = box.getSize(new THREE.Vector3());
+    const mid = box.getCenter(new THREE.Vector3());
+    cam.position.set(size.x * 0.75, mid.y + size.y * 0.06, box.max.z + size.z * 0.42);
+    cam.lookAt(0, mid.y - size.y * 0.08, box.max.z - size.z * 0.18);
+    cam.updateProjectionMatrix();
+    window.__game.renderer.render(s, cam);
+  });
+  await page.screenshot({ path: `${OUT}/bow-${cls}.png` });
+
   const sq = info.kinds.square || 0;
   const fa = (info.kinds.gaff || 0);
   console.log(`${cls.padEnd(12)} ${String(info.masts).padStart(3)}  ` +

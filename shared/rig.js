@@ -269,7 +269,12 @@ export const barrelLength = (rig) => Math.min(Math.max(rig.B * 0.28, 1.4), 3.0);
 export function gunPlacements(rig, count) {
   const decks = deckHeightsOf(rig);
   const n = Math.max(1, Math.min(count, rig.guns));
-  const perDeck = Math.ceil(n / rig.decks);
+  // What a DECK can carry, not what this ship happens to have aboard. Dividing
+  // the guns you own between all the decks put one gun on each and stacked them
+  // at a single station: a Man-of-War with three guns showed a vertical column
+  // amidships instead of three ports down her side. Fill the lowest deck first,
+  // the way a ship is armed.
+  const perDeck = Math.ceil(rig.guns / rig.decks);
   const out = [];
   let placed = 0;
   for (let d = 0; d < rig.decks && placed < n; d++) {

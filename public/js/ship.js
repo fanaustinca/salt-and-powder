@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { waterHeight } from '/shared/waves.js';
+import { STARTING_GUNS } from '/shared/combat.js';
 import {
   rigOf, mastPositions, yardPlan, deckHeightsOf, gunPlacements, chaserPlacement,
   barrelLength, gaffMasts, jibPlan, sheerAt, halfBeamAt, hullHalfAt,
@@ -184,11 +185,15 @@ function hullGeometry(rig) {
       pos.push((r <= M ? hw : -hw), y, z);
     }
   }
+  // Winding matters: the hull material is FrontSide, so a face wound the wrong
+  // way is simply not drawn and you look straight through her side into the
+  // inside of the far one. Ring-step BEFORE station-step puts the normal
+  // outboard on both sides, because the ring runs right round the section.
   for (let i = 0; i < N; i++) {
     for (let r = 0; r < RING - 1; r++) {
       const a = i * RING + r;
       const b = a + RING;
-      idx.push(a, b, a + 1, a + 1, b, b + 1);
+      idx.push(a, a + 1, b, a + 1, b + 1, b);
     }
   }
 
@@ -197,7 +202,7 @@ function hullGeometry(rig) {
   const sternRing = N * RING;
   const centre = pos.length / 3;
   pos.push(0, deck - (deck + keel) * 0.5, -rig.L / 2);
-  for (let r = 0; r < RING - 1; r++) idx.push(sternRing + r, centre, sternRing + r + 1);
+  for (let r = 0; r < RING - 1; r++) idx.push(sternRing + r + 1, centre, sternRing + r);
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -428,19 +433,31 @@ export function buildShip(accent = 0xa8342c, clsKey = 'sailboat') {
   const portGeo = new THREE.BoxGeometry(0.3, B * 0.11, B * 0.11);
   const carriageGeo = new THREE.BoxGeometry(B * 0.09, B * 0.05, B * 0.11);
 
-  for (const g0 of gunPlacements(rig, rig.guns)) {
-    for (const side of ['port', 'starboard']) {
-      const sx = side === 'port' ? 1 : -1;      // +X is port
-      add(portGeo, MAT.port, sx * g0.side * 0.99, g0.height, g0.along);
-      add(carriageGeo, MAT.dark, sx * g0.side * 0.78, g0.height - B * 0.03, g0.along);
+  // A gun is a port, a carriage and a barrel that must stay together, and the
+  // whole broadside has to be RE-LAID whenever the count changes — see
+  // setGuns(). Building the hull's full complement and merely hiding the
+  // surplus put the visible guns in the wrong places: the host fires from
+  // gunPlacements(rig, gunsYouOwn), which spreads those few down the whole
+  // side, while the client was showing the first few of a full-complement
+  // layout, bunched at one end. Nothing lined up.
+  for (const side of ['port', 'starboard']) {
+    const sx = side === 'port' ? 1 : -1;        // +X is port
+    for (let i = 0; i < rig.guns; i++) {
+      const gun = new THREE.Group();
+      const portMesh = new THREE.Mesh(portGeo, MAT.port);
+      const carriage = new THREE.Mesh(carriageGeo, MAT.dark);
       const barrel = new THREE.Mesh(gunGeo, MAT.iron);
-      barrel.position.set(sx * g0.mount, g0.height, g0.along);
       barrel.rotation.y = side === 'port' ? 0 : Math.PI;
       barrel.castShadow = true;
-      g.add(barrel);
-      guns[side].push(barrel);
+      gun.add(portMesh, carriage, barrel);
+      gun.userData = { sx, portMesh, carriage, barrel, dropped: B * 0.03 };
+      gun.visible = false;
+      g.add(gun);
+      guns[side].push(gun);
     }
   }
+  // Lay them out for the armament she starts with; setGuns re-lays them.
+  layBroadsides({ rig, guns }, { port: STARTING_GUNS.port, starboard: STARTING_GUNS.starboard });
   for (const side of ['bow', 'stern']) {
     const c = chaserPlacement(rig, side);
     const barrel = new THREE.Mesh(gunGeo, MAT.iron);
@@ -598,10 +615,15 @@ export function buildShip(accent = 0xa8342c, clsKey = 'sailboat') {
 
   // A ram beak on the biggest hull of all.
   if (has('rambow')) {
-    const ram = add(new THREE.ConeGeometry(B * 0.16, L * 0.14, 6), MAT.dark,
-      0, decks[0] - 0.4, L * 0.53);
-    ram.rotation.x = -Math.PI / 2;
-    add(new THREE.ConeGeometry(B * 0.1, L * 0.08, 6), gold, 0, decks[0] + 0.6, L * 0.55);
+    // A ram beak points FORWARD. This was rotated the wrong way, so the spike
+    // drove itself back into the bow and left a stub sticking out sideways —
+    // and its gilt tip, which had no rotation at all, stood on end above the
+    // stem like a bollard. A cone's axis is +Y, and +PI/2 about X is forward.
+    const y = decks[0] - 0.3;
+    const ram = add(new THREE.ConeGeometry(B * 0.15, L * 0.13, 7), MAT.dark, 0, y, L * 0.53);
+    ram.rotation.x = Math.PI / 2;
+    const tip = add(new THREE.ConeGeometry(B * 0.07, L * 0.05, 7), gold, 0, y, L * 0.615);
+    tip.rotation.x = Math.PI / 2;
   }
 
   // Anchors and a figurehead, on anything with a proper bow.
@@ -613,9 +635,13 @@ export function buildShip(accent = 0xa8342c, clsKey = 'sailboat') {
       add(new THREE.TorusGeometry(B * 0.09, 0.1, 6, 12, Math.PI), MAT.iron,
         sx * B * 0.4, decks[decks.length - 1] + 0.5, L * 0.38);
     }
+    // Forward and raking slightly up, like a figurehead. Negated, it pointed
+    // aft and drove itself back through the forecastle — and on a Flagship or a
+    // Leviathan it is gilt, so what showed at the bow was a gold spike aimed at
+    // her own deck.
     const fig = add(new THREE.ConeGeometry(B * 0.08, B * 0.3, 6),
       has('carvedstern') ? gold : MAT.deck, 0, decks[decks.length - 1] + 1.2, L * 0.5);
-    fig.rotation.x = -Math.PI / 2 + 0.3;
+    fig.rotation.x = Math.PI / 2 - 0.3;
   }
 
   // Capstan, gratings and casks on any decked ship.
@@ -771,11 +797,45 @@ export function animateSails(vis, fill, t) {
 }
 
 /** Show exactly the guns this ship has bought. */
+/**
+ * Lay a broadside out for the number of guns actually aboard.
+ *
+ * THE reason this exists: `muzzle()` on the host spawns each ball from
+ * `gunPlacements(rig, gunsYouOwn)[i]`, so the client has to draw the guns from
+ * exactly the same call with exactly the same count. Anything else and the shot
+ * leaves from somewhere there is no gun.
+ */
+export function layBroadsides(vis, counts) {
+  const rig = vis.rig;
+  for (const key of ['port', 'starboard']) {
+    const list = vis.guns?.[key];
+    if (!list) continue;
+    const want = Math.max(0, Math.min(counts[key] ?? 0, list.length));
+    const places = gunPlacements(rig, want);
+    list.forEach((gun, i) => {
+      gun.visible = i < want;
+      const p = places[i];
+      if (!p) return;
+      const { sx, portMesh, carriage, barrel, dropped } = gun.userData;
+      portMesh.position.set(sx * p.side * 0.99, p.height, p.along);
+      carriage.position.set(sx * p.side * 0.78, p.height - dropped, p.along);
+      barrel.position.set(sx * p.mount, p.height, p.along);
+      barrel.userData.base = { x: barrel.position.x, z: barrel.position.z };
+    });
+  }
+}
+
 export function setGuns(vis, counts) {
   if (!vis.guns || !counts) return;
-  for (const key in vis.guns) {
-    const want = counts[key] ?? 0;
-    vis.guns[key].forEach((barrel, i) => { barrel.visible = i < want; });
+  // Only re-lay when the count really changed — this runs every frame.
+  const key = `${counts.port ?? 0}/${counts.starboard ?? 0}`;
+  if (vis.gunKey !== key) {
+    vis.gunKey = key;
+    layBroadsides(vis, counts);
+  }
+  for (const side of ['bow', 'stern']) {
+    const want = counts[side] ?? 0;
+    vis.guns[side]?.forEach((b, i) => { b.visible = i < want; });
   }
 }
 
@@ -788,14 +848,18 @@ export function recoilGuns(vis, battery, amount) {
 export function updateGuns(vis, dt) {
   if (!vis.guns) return;
   for (const key in vis.guns) {
-    for (const b of vis.guns[key]) {
-      if (b.userData.base === undefined) b.userData.base = { x: b.position.x, z: b.position.z };
-      const r = b.userData.recoil || 0;
+    for (const gun of vis.guns[key]) {
+      const r = gun.userData.recoil || 0;
       if (r <= 0) continue;
-      b.userData.recoil = Math.max(0, r - dt * 2.4);
-      const back = b.userData.recoil * 0.9;
-      b.position.x = b.userData.base.x - Math.cos(b.rotation.y) * back;
-      b.position.z = b.userData.base.z + Math.sin(b.rotation.y) * back;
+      gun.userData.recoil = Math.max(0, r - dt * 2.4);
+      // The barrel runs in on its carriage; the gunport stays in the ship's side.
+      const barrel = gun.userData.barrel || gun;
+      if (barrel.userData.base === undefined) {
+        barrel.userData.base = { x: barrel.position.x, z: barrel.position.z };
+      }
+      const back = gun.userData.recoil * 0.9;
+      barrel.position.x = barrel.userData.base.x - Math.cos(barrel.rotation.y) * back;
+      barrel.position.z = barrel.userData.base.z + Math.sin(barrel.rotation.y) * back;
     }
   }
 }
