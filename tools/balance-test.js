@@ -8,7 +8,9 @@
 //   node tools/balance-test.js
 
 import { fleetFor, bandFor, FACTIONS } from '../shared/ai.js';
-import { gunsFor, xpForLevel, STARTING_GUNS } from '../shared/combat.js';
+import {
+  gunsFor, xpForLevel, levelFromXp, pointsAtLevel, STARTING_GUNS,
+} from '../shared/combat.js';
 import { KRAKEN, Kraken } from '../shared/kraken.js';
 import { classOf, SHIP_CLASSES } from '../shared/physics.js';
 
@@ -84,6 +86,25 @@ for (const level of [5, 10, 20, 30, 40, 50, 60]) {
   // A kill is 120 XP plus damage. A level should never need more than a
   // handful of good fights, or the ladder stops moving near the top.
   if (step > 900) problems.push(`level ${level} needs ${step} XP for one level — too steep`);
+}
+
+// --- and there must be no ceiling ------------------------------------------
+// levelFromXp used to stop dead at 60: you kept earning XP and never got
+// another talent point, with nothing on screen to say why.
+console.log('\nno level cap:');
+for (const level of [59, 60, 61, 100, 250]) {
+  const got = levelFromXp(xpForLevel(level));
+  const points = pointsAtLevel(got);
+  console.log(`  ${String(xpForLevel(level)).padStart(6)} xp -> level ${String(got).padStart(3)}` +
+    `, ${points} talent points`);
+  if (got !== level) problems.push(`${xpForLevel(level)} XP reads as level ${got}, not ${level}`);
+}
+// Every level's own threshold must land on that level, not the one below.
+for (let level = 2; level <= 400; level++) {
+  if (levelFromXp(xpForLevel(level)) !== level) {
+    problems.push(`level ${level}'s own XP total does not reach level ${level}`);
+    break;
+  }
 }
 
 console.log('');

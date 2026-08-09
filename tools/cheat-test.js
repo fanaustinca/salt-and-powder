@@ -68,7 +68,12 @@ const open = async (query) => {
   await page.type('#name', 'Cheater');
   await page.click('#hostlobby');
   await page.waitForFunction(() => window.__game?.me, { timeout: 40000 });
-  await wait(2500);
+  // `me` exists on 'init'; the private 'you' row (coins, guns, reload) comes on
+  // the next tick. Reading a balance before it arrives gives undefined, and
+  // "undefined -> 50000" then looks exactly like a cheat that did nothing.
+  await page.waitForFunction(() => typeof window.__game?.you?.coins === 'number',
+    { timeout: 20000 });
+  await wait(2000);
   return announced;
 };
 
@@ -100,9 +105,19 @@ check('coins', (await you()).coins > before.coins, `${before.coins} -> ${(await 
 await run('cheat.crowns(5000)'); await wait(700);
 check('crowns', (await you()).crowns > before.crowns);
 
-await run('cheat.xp(4000)'); await wait(900);
+// Past 60 on purpose: levelFromXp used to stop dead there, so you kept earning
+// XP and never got another talent point, with nothing on screen to say why.
+const said = await run('cheat.level(75)');
+await wait(1200);
 const lvl = await you();
-check('xp', lvl.level > before.level, `level ${before.level} -> ${lvl.level}`);
+check('level', lvl.level === 75, `${before.level} -> ${lvl.level}  (${said})`);
+if (lvl.level <= 60) problems.push(`level capped at ${lvl.level} — the 60 wall is back`);
+const points = await page.evaluate(() => window.__game.talents?.free ?? window.__game.you.free);
+console.log(`  ${points >= 60 ? '✓' : '✗'} talent points at level ${lvl.level}: ${points}`);
+if (!(points >= 60)) problems.push(`only ${points} talent points at level ${lvl.level}`);
+
+await run('cheat.xp(500)'); await wait(700);
+check('xp', (await you()).level >= lvl.level, 'raw XP still works');
 
 await run('cheat.cargo(6)'); await wait(700);
 check('cargo', (await you()).cargo > 0, `hold ${(await you()).cargo}`);

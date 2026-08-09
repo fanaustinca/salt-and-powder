@@ -101,9 +101,23 @@ export function xpForLevel(level) {
   return Math.round(70 * Math.pow(level - 1, 1.26));
 }
 
+/**
+ * There is no level cap.
+ *
+ * This used to stop dead at 60 — `while (lvl < 60 && ...)` — so past that you
+ * kept earning XP and never got another talent point, with nothing on screen to
+ * say why. Since the curve is a plain power law it inverts exactly, which also
+ * means no loop to bound: level 400 costs one multiply, same as level 4.
+ */
 export function levelFromXp(xp) {
-  let lvl = 1;
-  while (lvl < 60 && xp >= xpForLevel(lvl + 1)) lvl++;
+  if (!(xp > 0)) return 1;
+  let lvl = Math.max(1, Math.floor(1 + Math.pow(xp / 70, 1 / 1.26)));
+  // xpForLevel ROUNDS, so a threshold can sit a fraction below where the
+  // analytic inverse puts it and land you one level short of your own
+  // level-up. Step onto the right side of it — one or two iterations, never
+  // a scan from level 1.
+  while (xp >= xpForLevel(lvl + 1)) lvl++;
+  while (lvl > 1 && xp < xpForLevel(lvl)) lvl--;
   return lvl;
 }
 

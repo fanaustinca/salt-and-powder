@@ -153,7 +153,8 @@ cheat.fleet('dutch')    // armada | dutch | treasure | pirate
 cheat.ship('leviathan') // command any hull without paying for it
 cheat.picks({ broadside: 27, bowchaser: 1, sternchaser: 1, gunnery: 8 })
 cheat.tsunami(30, 20)   // a 30 m crest, arriving in 20 seconds
-cheat.xp(4000)          // levels, and so talent cards
+cheat.level(75)         // jump to a level — there is no cap
+cheat.xp(4000)          // raw XP, the long way round
 cheat.coins(50000); cheat.crowns(5000)
 cheat.cargo(99); cheat.hurt(50)
 cheat.goto('home')      // or a haven by index or name
@@ -372,6 +373,11 @@ CREW   Gunnery           +9% damage
 SHIP   Oak & Tar         +18 hull
        Powder Store      +1 TNT barrel
 ```
+
+**There is no level cap.** `levelFromXp` used to stop dead at 60 — you kept
+earning XP and never got another talent point, with nothing on screen to say
+why. It inverts the curve directly now, so level 400 costs one multiply, same as
+level 4, and `pointsAtLevel` was always `level - 1` and needed no change at all.
 
 **You do not shop the tree.** Each level deals you exactly three cards — one
 rolled at random from each section — and you take one. The host rolls the hand

@@ -11,7 +11,7 @@ import { Hud } from './hud.js';
 import { Shop } from './shop.js';
 import { Talents } from './talents.js';
 import { trailOf } from '/shared/cosmetics.js';
-import { AMMO } from '/shared/combat.js';
+import { AMMO, xpForLevel } from '/shared/combat.js';
 import {
   buildShip, animateSails, animatePennant, floatShip, makeLabel, recoilGuns, updateGuns, setGuns,
 } from './ship.js';
@@ -694,6 +694,19 @@ const cheating = (fn) => (...args) => (cheatsLive() ? fn(...args) : 'cheats are 
 window.cheat = {
   crowns: (n = 5000) => { net.socket.emit('grant-crowns', n); return `+${Math.min(n, 5000)} crowns`; },
   coins: (n = 50000) => { net.socket.emit('grant-coins', n); return `+${Math.min(n, 50000)} coins`; },
+  /**
+   * Sail straight to a level. Nicer than handing out raw XP, because what you
+   * actually want is "give me the talent points for level 40", and the XP that
+   * costs changed the last time the curve was tuned.
+   */
+  level: (n = 20) => {
+    const want = Math.max(1, Math.min(Math.round(n), 400));
+    const need = xpForLevel(want) - (you.xp || 0);
+    if (need <= 0) return `already level ${you.level} — cheat.reset() to go back down`;
+    net.socket.emit('dev-xp', need);
+    return `level ${you.level} -> ${want} (+${need} xp)`;
+  },
+  /** Raw XP, still here because it is what the host hook actually takes. */
   xp: (n = 4000) => { net.socket.emit('dev-xp', n); return `+${Math.min(n, 100000)} xp`; },
   cargo: (n = 99) => { net.socket.emit('dev-cargo', n); return 'hold filled'; },
   hurt: (n = 50) => { net.socket.emit('dev-hurt', n); return `-${n} hull`; },
@@ -765,7 +778,8 @@ window.cheat = {
   help: () => console.table({
     'cheat.crowns(n)': 'up to 5000 a call',
     'cheat.coins(n)': 'up to 50000 a call',
-    'cheat.xp(n)': 'levels, and so talent cards',
+    'cheat.level(n)': 'jump to level n — there is no cap',
+    'cheat.xp(n)': 'raw XP, if you want the long way round',
     'cheat.cargo(n)': 'fill the hold',
     'cheat.hurt(n)': 'take hull damage',
     'cheat.tsunami(h,s)': 'rogue wave h metres tall, in s seconds',
