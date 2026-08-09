@@ -391,7 +391,15 @@ export class GameHost {
 
       case 'input': {
         if (!p || !data) return;
-        const cl = (v) => (v > 0 ? 1 : v < 0 ? -1 : 0);
+        // Clamp rather than quantise. A keyboard only ever sends -1, 0 or 1, but
+        // a touch helm is proportional — snapping it to hard-over here would put
+        // the host and the client's own prediction on different rudders every
+        // tick, which reads as the ship fighting your thumb. The cap is what
+        // stops a client asking for a rudder it does not have.
+        const cl = (v) => {
+          const n = Number(v);
+          return Number.isFinite(n) ? Math.min(Math.max(n, -1), 1) : 0;
+        };
         p.input.rudder = cl(data.r);
         p.input.throttle = cl(data.t);
         if (typeof data.seq === 'number' && data.seq > p.input.seq) p.input.seq = data.seq;

@@ -11,6 +11,7 @@ import { Hud } from './hud.js';
 import { Shop } from './shop.js';
 import { Talents } from './talents.js';
 import { trailOf } from '/shared/cosmetics.js';
+import { AMMO } from '/shared/combat.js';
 import {
   buildShip, animateSails, animatePennant, floatShip, makeLabel, recoilGuns, updateGuns, setGuns,
 } from './ship.js';
@@ -20,6 +21,7 @@ import { Islands, CargoDrops, SafeRings } from './islands.js';
 import { Dock } from './dock.js';
 import { KrakenFX } from './kraken-fx.js';
 import { Lobby } from './lobby.js';
+import { TouchControls, wantsTouch } from './touch.js';
 import { FACTIONS } from '/shared/ai.js';
 
 // ------------------------------------------------------------------ renderer
@@ -121,6 +123,29 @@ const keys = Object.create(null);
 const input = defaultInput();
 let inputSeq = 0;
 
+// Thumb controls. Built lazily — see touch.js for why this is not a media query
+// alone. The actions are arrows so they resolve against the panels below.
+const touch = new TouchControls({
+  onFire: () => { if (aimSolution) net.socket.emit('fire', aimSolution); },
+  onBarrel: () => net.socket.emit('drop-tnt'),
+  // Cycle only what is actually in the magazine. The host refuses shot you do
+  // not hold, so cycling blindly meant the button did nothing at all until you
+  // had crafted something — indistinguishable, on a phone, from it being broken.
+  onAmmo: () => {
+    const held = AMMO_ORDER.filter((a) => a === 'round' || (you.ammoStock?.[a] || 0) > 0);
+    if (held.length < 2) {
+      hud.toast('Only round shot aboard — craft more at the gunner\'s bench');
+      return;
+    }
+    const next = held[(held.indexOf(you.ammo) + 1) % held.length];
+    net.socket.emit('set-ammo', next);
+    hud.toast(`${AMMO[next]?.name || next} in the guns`);
+  },
+  onTalents: () => talents.toggle(),
+  onShop: () => shop.toggle(),
+});
+if (wantsTouch()) touch.enable();
+
 /** True while the player is typing somewhere, e.g. the name box. */
 function typingInField(e) {
   const el = e.target;
@@ -148,18 +173,20 @@ addEventListener('keydown', (e) => {
 
   if (e.code === 'KeyT' && !e.shiftKey) talents.toggle();
 
-  // Ammunition: 1 round, 2 chain, 3 grape, 4 heated, 5 explosive.
-  const AMMO_KEYS = ['round', 'chain', 'grape', 'heated', 'explosive'];
   const n = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'].indexOf(e.code);
-  if (n >= 0) net.socket.emit('set-ammo', AMMO_KEYS[n]);
+  if (n >= 0) net.socket.emit('set-ammo', AMMO_ORDER[n]);
 });
 addEventListener('keyup', (e) => { if (!typingInField(e)) keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+// Ammunition: 1 round, 2 chain, 3 grape, 4 heated, 5 explosive.
+const AMMO_ORDER = ['round', 'chain', 'grape', 'heated', 'explosive'];
 
 function readInput() {
   const k = (a, b) => (keys[a] ? 1 : 0) - (keys[b] ? 1 : 0);
   input.rudder = k('KeyD', 'KeyA') || k('ArrowRight', 'ArrowLeft'); // +1 = helm to starboard
   input.throttle = k('KeyW', 'KeyS') || k('ArrowUp', 'ArrowDown');
+  touch.read(input, me?.throttle ?? 0);   // per-axis; the keyboard wins where it speaks
 }
 
 // ------------------------------------------------------------------ camera rig
@@ -169,28 +196,68 @@ let lastPointer = { x: 0, y: 0 };
 
 let dragDist = 0;
 
+// A finger has no hover, so where you are pointing is only known once you touch
+// the glass — and a tap can be over before the next frame runs. Solve the shot
+// here rather than reading the one the last frame happened to leave behind, or
+// a tap fires at wherever you tapped previously.
+function fireAt(clientX, clientY) {
+  if (!me) return;
+  aim.setPointer(clientX, clientY);
+  const solved = aim.update(me, you.guns, you.reload, net.serverNow(),
+    !me.sunk && !shop.open && !talents.open);
+  if (solved) net.socket.emit('fire', solved);
+}
+
+// Live touches on the canvas, so two fingers can pinch the camera in and out.
+const touches = new Map();
+let pinchFrom = 0;
+const spread = () => {
+  const [a, b] = [...touches.values()];
+  return Math.hypot(a.x - b.x, a.y - b.y);
+};
+
 canvas.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'touch') {
+    touch.enable();
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touches.size === 2) { pinchFrom = spread(); dragging = false; return; }
+    if (touches.size > 2) return;
+  }
   dragging = true;
   dragDist = 0;
   lastPointer = { x: e.clientX, y: e.clientY };
   canvas.setPointerCapture(e.pointerId);
 });
+
 canvas.addEventListener('pointerup', (e) => {
   canvas.releasePointerCapture?.(e.pointerId);
-  // A left click that did not really move the pointer is a shot, not a drag —
-  // so you can aim and fire without ever leaving the left button.
-  if (dragging && e.button === 0 && dragDist < 6 && aimSolution) {
-    net.socket.emit('fire', aimSolution);
+  const wasPinching = touches.size >= 2;
+  touches.delete(e.pointerId);
+  // A click or tap that did not really move is a shot, not a drag — so you can
+  // aim and fire without ever leaving the button, or lifting your thumb.
+  if (dragging && !wasPinching && e.button === 0 && dragDist < 8) {
+    fireAt(e.clientX, e.clientY);
   }
   dragging = false;
 });
+canvas.addEventListener('pointercancel', (e) => { touches.delete(e.pointerId); dragging = false; });
+
 canvas.addEventListener('pointermove', (e) => {
+  if (touches.has(e.pointerId)) touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (touches.size === 2) {
+    const now = spread();
+    if (pinchFrom > 0 && now > 0) {
+      cam.dist = clamp(cam.dist * (pinchFrom / now), 11, 95);
+      pinchFrom = now;
+    }
+    return;
+  }
   aim.setPointer(e.clientX, e.clientY);
   if (!dragging) return;
   const dx = e.clientX - lastPointer.x;
   const dy = e.clientY - lastPointer.y;
   dragDist += Math.hypot(dx, dy);
-  if (dragDist >= 6) {
+  if (dragDist >= 8) {
     cam.yaw -= dx * 0.005;
     cam.pitch = clamp(cam.pitch + dy * 0.004, -0.12, 1.05);
   }
@@ -315,6 +382,9 @@ net.onInit = (msg) => {
   const mine = msg.state.ships.find((s) => s.id === msg.id);
   me = createShip(msg.id, mine?.n || myName, 0, mine?.c || 'sailboat');
   if (mine) Object.assign(me, { x: mine.x, z: mine.z, heading: mine.h, throttle: mine.th ?? 0.6 });
+  // Start the sail lever showing the canvas she is already carrying, rather
+  // than ordering a change the moment you get the helm.
+  touch.syncSail(me.throttle);
   myHome = msg.home;
   if (!myVisual) {
     myVisual = makeVisual(msg.id, me.name, true, me.cls);
@@ -531,11 +601,41 @@ function updateCamera(dt, t) {
   camera.lookAt(me.x, deck + 4.2, me.z);
 }
 
+/**
+ * A phone held upright is the one shape this camera was never designed for.
+ * Field of view is specified vertically, so a tall screen keeps the vertical
+ * angle and throws the horizontal one away: measured on a 390x844 phone, the
+ * view spanned 28.7 degrees across, only 14% of the screen could be aimed at,
+ * and nothing beyond 26 m of the guns' 180 m range was reachable. You could
+ * sail, but you could not fight.
+ *
+ * So the narrower the screen, the wider the lens and the higher and further
+ * back the camera sits — which puts sea, rather than sky, in the space a
+ * portrait screen actually has. Same measurement after: 48 degrees across, 37%
+ * aimable, 90 m of reach. Landscape and desktop are left exactly as they were.
+ */
+const PORTRAIT_FROM = 0.85;     // aspect at which the adjustment starts
+const PORTRAIT_FULL = 0.45;     // ...and is fully applied
+const portraitness = (aspect) =>
+  clamp((PORTRAIT_FROM - aspect) / (PORTRAIT_FROM - PORTRAIT_FULL), 0, 1);
+
+let shapedFor = null;
 function resize() {
   const w = innerWidth;
   const h = innerHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
+
+  const t = portraitness(camera.aspect);
+  camera.fov = 58 + 30 * t;
+  // Pitch and distance are the player's to change by dragging and pinching, so
+  // only reset them when the shape of the screen has really changed — a rotate
+  // or a first layout, not every resize event.
+  if (shapedFor === null || Math.abs(t - shapedFor) > 0.1) {
+    shapedFor = t;
+    cam.pitch = 0.34 + 0.16 * t;
+    cam.dist = 36 + 10 * t;
+  }
   camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize);
@@ -650,5 +750,8 @@ window.__game = {
   islands,
   get home() { return myHome; },
   fx,
+  touch,
+  get touchRudder() { return touch.rudder; },
+  get touchSail() { return touch.sail; },
   myWakeColour: () => myWake?.mesh.material.uniforms.uA.value.getHexString(),
 };

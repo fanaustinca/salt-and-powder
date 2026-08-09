@@ -76,6 +76,59 @@ sea either way.
 | drag / wheel | Look around, zoom |
 | `Shift`+`T` | Dev: summon a rogue wave instead of waiting for one |
 
+## On a phone or tablet
+
+The published link works on mobile. Touch controls appear on their own when the
+page is opened on something you touch — `?touch=1` forces them on a desktop
+browser for testing.
+
+```
+SAIL   left, vertical, absolute — drag it and leave it there
+HELM   bottom, horizontal, proportional, springs back amidships
+tap the sea    aim and fire, exactly as a click does
+drag           look around      ·      pinch      zoom
+FIRE KEG SHOT TAL SHOP
+```
+
+Two of those deserve explaining, because they are not just the keyboard with
+bigger buttons:
+
+**The sail lever is absolute, the keyboard throttle is a rate.** `W` ramps the
+canvas up while it is held, which is fine with a finger resting on a key and
+miserable on glass. The lever is an order — drag it to two thirds and the ship
+chases it and settles there. It emits the same −1/0/+1 the keyboard does, so the
+host needs no idea any of this is happening.
+
+**The helm is proportional.** Most of sailing is holding a course, not turning
+hard, and a left/right button cannot do that. This meant the host had to stop
+quantising the rudder to hard-over — it clamps to ±1 now instead, or the host
+and the client's own prediction would be on different rudders every tick and the
+ship would feel like it was fighting your thumb.
+
+### A portrait phone needed a different camera
+
+Field of view is specified vertically, so a tall screen keeps the vertical angle
+and throws the horizontal one away. Measured on a 390×844 phone with the desktop
+camera: **28.7° across, 14% of the screen aimable, nothing beyond 26 m** of the
+guns' 180 m reachable. You could sail perfectly well and you could not fight at
+all — your own broadside pointed off the edge of the screen.
+
+So the narrower the screen, the wider the lens and the higher and further back
+the camera, which spends a portrait screen's height on sea rather than sky:
+
+```
+                        aspect   fov   hfov   aimable   reach
+desktop 16:9             1.78    58°    89°     —        —
+iPad landscape           1.44    58°    77°     67%     91 m
+iPhone portrait          0.46    87°    48°     33%     93 m   (was 14%, 26 m)
+```
+
+Landscape and desktop are left exactly as they were — the adjustment fades in
+below 0.85 aspect and is fully applied by 0.45. `node tools/touch-test.js`
+measures the aimable fraction on both devices and fails if it drops below a
+quarter of the screen, because that is the number that decides whether the game
+is playable in your hand.
+
 ## Console cheats
 
 Open devtools and type `cheat.help()`. They only work where the host has dev
@@ -440,6 +493,7 @@ npm run test:host            # the whole game, no transport, no browser (fast)
 npm run test:rtc             # build, then two browsers over a real data channel
 node tools/live-check.js     # drive the PUBLISHED site with the real broker
 node tools/cheat-test.js     # every console cheat, and the dev gate that hides them
+node tools/touch-test.js     # an emulated iPhone and iPad: helm, sail, tap-to-fire
 npm run tune                 # speed polar + what mistrimming costs
 node tools/bot.js 3          # 3 headless crew bots so you can test alone
 node tools/smoke.js          # headless browser: joins, checks the helm answers
