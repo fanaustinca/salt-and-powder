@@ -17,6 +17,7 @@ const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 
 await page.goto(URL, { waitUntil: 'networkidle2' });
+await page.waitForSelector('#sail:not([hidden])');
 await page.type('#name', 'Trailtest');
 await page.click('#sail');
 await wait(2500);

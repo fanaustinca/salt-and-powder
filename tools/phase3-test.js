@@ -15,7 +15,7 @@ await page.setViewport({ width: 1280, height: 760 });
 page.on('pageerror', (e) => errors.push(String(e)));
 
 await page.goto('http://localhost:3000', { waitUntil: 'domcontentloaded', timeout: 60000 });
-await page.waitForSelector('#sail');
+await page.waitForSelector('#sail:not([hidden])');
 await page.evaluate(() => { document.getElementById('name').value = ''; });
 await page.type('#name', 'Trader');
 await page.click('#sail');

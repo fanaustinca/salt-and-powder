@@ -19,6 +19,7 @@ import { Aim } from './aim.js';
 import { Islands, CargoDrops, SafeRings } from './islands.js';
 import { Dock } from './dock.js';
 import { KrakenFX } from './kraken-fx.js';
+import { Lobby } from './lobby.js';
 import { FACTIONS } from '/shared/ai.js';
 
 // ------------------------------------------------------------------ renderer
@@ -280,27 +281,35 @@ function reclass(vis, id, cls, faction) {
 }
 
 // ------------------------------------------------------------------ join flow
-const joinEl = document.getElementById('join');
-const nameEl = document.getElementById('name');
-nameEl.value = localStorage.getItem('pirate.name') || '';
-nameEl.focus();
-
 let myName = 'Sailor';
 let myHome = null;
-function doJoin() {
-  myName = (nameEl.value || 'Sailor').slice(0, 16);
-  localStorage.setItem('pirate.name', myName);
-  net.join(myName);
-  joinEl.style.display = 'none';
-  hud.show();
-  canvas.focus();
-}
 
 // Rejoin after a dropped connection or a server restart, rather than sitting
 // there watching an empty sea forever.
 net.socket.on('connect', () => { if (me || myVisual) net.join(myName); });
-document.getElementById('sail').addEventListener('click', doJoin);
-nameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') doJoin(); });
+// A guest whose host closes their tab has nothing left to reconnect to. Say so
+// plainly and leave it said — a toast fades, and a frozen sea with no
+// explanation reads as a bug in the game.
+net.socket.on('disconnect', () => {
+  if (net.socket.mode !== 'guest') return;
+  hud.toast('Lost the host — the lobby has closed.');
+  const chip = document.getElementById('lobbychip');
+  if (chip) {
+    chip.classList.add('gone');
+    chip.innerHTML = '<span class="lbl">LOBBY</span><b>CLOSED</b><span class="cp">host left</span>';
+  }
+});
+
+// The lobby owns the join card and decides how we get to sea: this server, a
+// lobby hosted in this tab, or a data channel to somebody else's. By the time
+// it calls back, net.socket has a wire behind it.
+const lobby = new Lobby(net.socket, (name) => {
+  myName = name;
+  net.join(myName);
+  hud.show();
+  canvas.focus();
+});
+lobby.open();
 
 net.onInit = (msg) => {
   const mine = msg.state.ships.find((s) => s.id === msg.id);

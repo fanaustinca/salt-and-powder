@@ -18,7 +18,7 @@ await page.setViewport({ width: 1280, height: 760 });
 page.on('pageerror', (e) => errors.push(String(e)));
 
 await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
-await page.waitForSelector('#sail');
+await page.waitForSelector('#sail:not([hidden])');
 await page.evaluate(() => { document.getElementById('name').value = ''; });
 await page.type('#name', 'Cadet' + Math.floor(Math.random() * 9999));
 await page.click('#sail');

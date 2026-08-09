@@ -9,6 +9,7 @@ import compression from 'compression';
 import { Server } from 'socket.io';
 import { TICK_HZ } from './shared/physics.js';
 import { GameHost } from './shared/game-host.js';
+import { CLIENT_EVENTS } from './shared/transport.js';
 import { Profiles } from './server-profiles.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -24,6 +25,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/shared', express.static(path.join(__dirname, 'shared')));
 app.use('/vendor/three', express.static(path.join(__dirname, 'node_modules/three/build')));
 app.use('/vendor/three/addons', express.static(path.join(__dirname, 'node_modules/three/examples/jsm')));
+// So "host a lobby" can be exercised locally exactly as it runs on Pages.
+app.use('/vendor/peerjs', express.static(path.join(__dirname, 'node_modules/peerjs/dist')));
 app.get('/healthz', (_req, res) => res.json({ ok: true, players: host.players.size }));
 
 const server = http.createServer(app);
@@ -51,12 +54,8 @@ const host = new GameHost({
 });
 
 // Every client message routes through the host; the adapter adds no game rules.
-const CLIENT_EVENTS = [
-  'join', 'input', 'ping-t', 'fire', 'drop-tnt', 'spend-talent',
-  'buy-trail', 'equip-trail', 'sell-cargo', 'buy-ship', 'buy-armour', 'set-ammo', 'craft',
-  'summon-tsunami', 'grant-crowns', 'dev-xp', 'dev-place', 'dev-cargo', 'grant-coins', 'dev-hurt', 'dev-class', 'dev-picks', 'reset-profile', 'dev-fleet', 'dev-kraken',
-];
-
+// The allowlist lives in shared/transport.js so the browser-hosted P2P lobby
+// accepts exactly the same set and no more.
 io.on('connection', (socket) => {
   transport.add(socket);
   for (const event of CLIENT_EVENTS) {

@@ -1,13 +1,14 @@
-import { io } from '/socket.io/socket.io.esm.min.js';
+import { Link } from './link.js';
 
 /**
- * Socket wrapper: keeps a small snapshot buffer for interpolating other ships,
- * and estimates the offset between this browser's clock and the server's so the
- * ocean is in the same phase on every screen.
+ * Snapshot buffer and clock sync. It talks to a `Link` rather than a socket, so
+ * the same code runs whether the authority is a Node server across the internet
+ * or a `GameHost` in the tab next door — see link.js and lobby.js. The lobby
+ * binds the actual wire; everything here works the moment it does.
  */
 export class Net {
-  constructor() {
-    this.socket = io({ transports: ['websocket', 'polling'] });
+  constructor(socket = new Link()) {
+    this.socket = socket;
     this.id = null;
     this.sea = 1;
     this.drops = [];

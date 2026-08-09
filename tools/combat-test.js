@@ -20,7 +20,7 @@ async function join(name) {
   page.on('pageerror', (e) => errors.push(`${name}: ${e}`));
   // Not networkidle: two clients hold open sockets, so the network never idles.
   await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.waitForSelector('#sail', { timeout: 30000 });
+  await page.waitForSelector('#sail:not([hidden])', { timeout: 30000 });
   await page.type('#name', name);
   await page.click('#sail');
   await wait(2200);

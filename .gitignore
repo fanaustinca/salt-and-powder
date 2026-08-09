@@ -5,6 +5,9 @@ node_modules/
 # Real people's save data — it does not belong in the repo.
 data/
 
+# The assembled static site — rebuilt by tools/build-static.js, published by CI
+dist/
+
 # Screenshots written by the headless test tools
 shots/
 

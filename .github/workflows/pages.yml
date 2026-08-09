@@ -1,0 +1,58 @@
+name: Deploy to GitHub Pages
+
+# Publishes the peer-to-peer build. Pages cannot run the Node server, so what
+# ships is the client plus shared/ — enough for one player's browser to host the
+# world and the rest to join it over WebRTC. server.js stays in the repo for
+# anyone who would rather run a real always-on host.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a newer push supersedes an in-flight one.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Chrome is only needed by the browser tests, which do not run here.
+      - run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+
+      # The game rules run with no server, no sockets and no browser. If this
+      # fails, the thing we are about to publish could not have worked.
+      - run: node tools/host-test.js
+
+      - run: node tools/build-static.js
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -24,14 +24,19 @@ page.on('pageerror', (e) => errors.push(String(e)));
 page.on('requestfailed', (r) => errors.push(`REQ FAIL ${r.url()} ${r.failure()?.errorText}`));
 
 await page.goto(URL, { waitUntil: 'networkidle2', timeout: 30000 });
+await page.waitForSelector('#sail:not([hidden])');
 await page.type('#name', 'Smoketest');
 await page.click('#sail');
 await wait(3000);
 
 // --- does D actually turn her to starboard on screen? -----------------------
-const before = await page.evaluate(() => ({ h: window.__game.me.heading }));
+// Sample the reference heading immediately before the rudder goes over. Taking
+// it before the four seconds of gathering way meant anything that moved her in
+// between — an AI fleet, a respawn onto a fresh heading — was measured as part
+// of the turn, and this reported a mirrored helm on a build whose helm was fine.
 await page.keyboard.down('KeyW');
 await wait(4000);
+const before = await page.evaluate(() => ({ h: window.__game.me.heading }));
 await page.keyboard.down('KeyD');
 await wait(1600);
 await page.keyboard.up('KeyD');

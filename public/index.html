@@ -53,6 +53,48 @@
     letter-spacing: 1px;
   }
   #join button:hover { filter: brightness(1.08); }
+  /* three ways to sea: this server, host a lobby, join one by code */
+  #routes.working { opacity: 0.45; pointer-events: none; }
+  #routes .pair { display: flex; gap: 8px; }
+  #routes .pair button { flex: 1; }
+  #join button.ghost {
+    background: transparent; color: var(--ink);
+    border: 1px solid var(--edge); font-weight: 600; letter-spacing: 0.6px; font-size: 14px;
+  }
+  #join button.ghost:hover { border-color: var(--gold); color: var(--gold); filter: none; }
+  .orline {
+    display: flex; align-items: center; gap: 10px;
+    margin: 14px 0 10px; font-size: 11px; letter-spacing: 1.2px;
+    text-transform: uppercase; opacity: 0.42;
+  }
+  .orline::before, .orline::after {
+    content: ''; flex: 1; height: 1px; background: var(--edge);
+  }
+  #codebox { display: flex; gap: 8px; margin-top: 8px; }
+  #codebox input {
+    flex: 1; margin: 0; letter-spacing: 6px; font-size: 19px; font-weight: 700;
+    text-transform: uppercase; padding: 9px 12px;
+  }
+  #codebox button { margin: 0; width: auto; padding: 9px 18px; }
+  #joinstatus { margin-top: 12px; font-size: 12px; line-height: 1.6; opacity: 0.7; min-height: 2.6em; }
+
+  /* the room code, always one glance away while a lobby is up */
+  #lobbychip {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 9px;
+    padding: 5px 12px; border-radius: 999px; cursor: pointer; pointer-events: auto;
+    background: var(--panel); border: 1px solid var(--edge);
+    font-size: 12px; letter-spacing: 1.2px;
+  }
+  #lobbychip[hidden] { display: none; }
+  #lobbychip .lbl { opacity: 0.55; }
+  #lobbychip b { color: var(--gold); font-size: 15px; letter-spacing: 3px; }
+  #lobbychip .cp { opacity: 0.45; font-size: 11px; }
+  #lobbychip.gone { cursor: default; border-color: var(--bad); }
+  #lobbychip.gone b { color: var(--bad); letter-spacing: 1.4px; }
+  #lobbychip:hover { border-color: var(--gold); }
+  #lobbychip:hover .cp { opacity: 0.8; }
+
   #join .keys { margin-top: 18px; font-size: 12.5px; line-height: 1.85; opacity: 0.75; text-align: left; }
   #join .keys b { color: var(--gold); font-weight: 600; }
   #join .hint { margin-top: 14px; font-size: 12px; opacity: 0.5; font-style: italic; }
@@ -298,6 +340,7 @@
     <div id="talalert" class="panel">TALENT POINT — press T</div>
     <div id="net">connecting…</div>
     <div id="seastate" class="panel"></div>
+    <div id="lobbychip" hidden></div>
     <div id="toasts"></div>
 
     <div id="alert" class="panel">
@@ -363,7 +406,22 @@
     <h1>SALT &amp; POWDER</h1>
     <p class="sub">Phase I — Wind and Water</p>
     <input id="name" maxlength="16" placeholder="Your name" autocomplete="off" />
-    <button id="sail">SET SAIL</button>
+
+    <div id="routes">
+      <button id="sail" hidden>SET SAIL</button>
+      <div id="orline" class="orline" hidden><span>or play peer&#8209;to&#8209;peer</span></div>
+      <div class="pair">
+        <button id="hostlobby" class="ghost">HOST A LOBBY</button>
+        <button id="joinlobby" class="ghost">JOIN A LOBBY</button>
+      </div>
+      <div id="codebox" hidden>
+        <input id="code" maxlength="4" placeholder="CODE" autocomplete="off"
+               autocapitalize="characters" spellcheck="false" />
+        <button id="codego">JOIN</button>
+      </div>
+    </div>
+    <div id="joinstatus"></div>
+
     <div class="keys">
       <div><b>A</b> / <b>D</b> — put the helm over &nbsp;·&nbsp; <b>W</b> / <b>S</b> — throttle</div>
       <div><b>Left click</b> — aim at the sea and fire</div>
@@ -377,12 +435,22 @@
   </div>
 </div>
 
+<!--
+  Every module path in the source is written root-absolute (/shared/…), which is
+  right when Express serves this at a domain root but wrong on GitHub Pages,
+  where the site lives under /<repo>/. Rather than rewrite every import, the map
+  below re-points those roots at the document base — so one set of sources runs
+  unchanged in both places.
+-->
 <script type="importmap">
 { "imports": {
-    "three": "/vendor/three/three.module.js",
-    "three/addons/": "/vendor/three/addons/"
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/addons/",
+    "/shared/": "./shared/",
+    "/vendor/": "./vendor/",
+    "/js/": "./js/"
 } }
 </script>
-<script type="module" src="/js/main.js"></script>
+<script type="module" src="./js/main.js"></script>
 </body>
 </html>

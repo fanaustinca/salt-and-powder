@@ -14,6 +14,7 @@ const page = await browser.newPage();
 await page.setViewport({ width: 700, height: 700 });
 page.on('pageerror', (e) => console.log('PAGE ERROR', String(e)));
 await page.goto(URL, { waitUntil: 'networkidle2' });
+await page.waitForSelector('#sail:not([hidden])');
 await page.type('#name', 'Plan');
 await page.click('#sail');
 await new Promise((r) => setTimeout(r, 4000));

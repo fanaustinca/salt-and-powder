@@ -19,6 +19,26 @@
  *   on(event, handler) / emit(event, data) / id
  */
 
+/**
+ * Everything a client is allowed to say. Both adapters route through this, so a
+ * peer on a WebRTC channel cannot reach a handler the socket.io server refuses
+ * to expose. The dev hooks are listed here too but `GameHost` drops them unless
+ * it was built with `dev: true` — the allowlist decides what is *addressable*,
+ * the host decides what is *permitted*.
+ */
+export const CLIENT_EVENTS = [
+  'join', 'input', 'ping-t', 'fire', 'drop-tnt', 'spend-talent',
+  'buy-trail', 'equip-trail', 'sell-cargo', 'buy-ship', 'buy-armour',
+  'set-ammo', 'craft',
+  // dev hooks
+  'summon-tsunami', 'grant-crowns', 'dev-xp', 'dev-place', 'dev-cargo',
+  'grant-coins', 'dev-hurt', 'dev-class', 'dev-picks', 'reset-profile',
+  'dev-fleet', 'dev-kraken',
+];
+
+const CLIENT_EVENT_SET = new Set(CLIENT_EVENTS);
+export const isClientEvent = (event) => CLIENT_EVENT_SET.has(event);
+
 /** Host-side transport that goes nowhere. Useful for tests and single player. */
 export class NullTransport {
   constructor() { this.sent = []; }

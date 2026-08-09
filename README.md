@@ -1,16 +1,65 @@
 # Salt & Powder
 
-A shared 3D ocean where real players sail against the same wind and the same
-weather. This is the foundation the rest of the game (combat, bases, crews,
-economy) gets built on.
+A shared 3D ocean where real players sail against the same weather, fight with
+the same guns, and spend what they take at the same ports.
+
+**Play it: https://fanaustinca.github.io/salt-and-powder/** — one of you clicks
+**HOST A LOBBY**, reads out the four-character code, everyone else types it in.
+No server, no install, no account.
+
+Or run a proper always-on host:
 
 ```bash
 npm install
 npm start          # http://localhost:3000
 ```
 
-Open the page in two browser windows (or on another machine on your network) and
-both ships appear in the same sea.
+## Two ways to get to sea
+
+The join screen offers whichever routes are actually available:
+
+| | Who is the authority | Needs |
+| --- | --- | --- |
+| **This server** | a Node process running `server.js` | somewhere to run Node |
+| **Host a lobby** | one player's browser tab | nothing |
+| **Join a lobby** | somebody else's browser tab | their room code |
+
+The page probes for `/healthz` on load. On GitHub Pages there is no server to
+answer, so **SET SAIL** is not offered at all and the peer-to-peer routes are the
+whole menu; run it locally and all three appear.
+
+### What peer-to-peer actually means here
+
+The player who hosts is running the *entire game* — weather, AI squadrons, the
+Kraken, every shot — in their tab. Everyone else opens a **WebRTC data channel**
+straight to them. Game traffic never touches a third party.
+
+The one thing that cannot be done peer-to-peer is the introduction: two browsers
+that have never met need somewhere to swap ICE candidates. That runs through the
+public **PeerJS broker** — a few kilobytes at the moment you join and nothing
+afterwards. `?broker=host:port` points it at your own [PeerServer] instead.
+
+Worth knowing before you rely on it:
+
+- **The host tab is the server.** Close it and the lobby is gone. Guests are told,
+  rather than left staring at a frozen sea.
+- **Progress lives in the host's browser.** Crowns, Coins, hull and cosmetics are
+  saved to *their* `localStorage`, keyed by captain name exactly as the server
+  keys `data/profiles.json`. Different host, different books.
+- **A backgrounded tab throttles timers to about 1 Hz**, which would make the host
+  a slideshow for everyone. The tick runs in a Web Worker to dodge that, but the
+  host should still keep the tab open.
+- **Some networks block direct connections.** PeerJS ships STUN and TURN relays
+  that cover the usual home NAT; a locked-down corporate or campus network may
+  still refuse, and the guest is told so rather than left hanging.
+- **Snapshots go down a reliable, ordered channel.** Simple and correct, but one
+  lost packet briefly holds up the ones behind it. An unreliable channel for
+  state would ride out loss better and is the obvious next move.
+
+Open the page twice, or on another machine, and both ships appear in the same
+sea either way.
+
+[PeerServer]: https://github.com/peers/peerjs-server
 
 ## Controls
 
@@ -273,11 +322,18 @@ shared/combat.js    ballistics, batteries, ammo, damage, XP curve, talent tree
 shared/cosmetics.js trail catalogue and Crown rates, shared by shop and host
 shared/game-host.js THE GAME: weather, players, crowns, the fixed-step tick
 shared/combat-host.js  shots, hits, sinking, respawn — the host judges every hit
-shared/transport.js contract between the game and however messages travel
+shared/transport.js contract between the game and however messages travel,
+                    plus the allowlist of everything a client may say
 server.js           thin Node adapter: express + socket.io -> GameHost
 server-profiles.js  Crowns and owned trails, persisted to data/profiles.json
+public/js/link.js   socket-shaped object whose wire is chosen at runtime
+public/js/lobby.js  the join screen: server, host a lobby, or join one
+public/js/rtc.js    WebRTC data channels + room codes (host and guest)
+public/js/browser-host.js      GameHost running in a tab, ticked from a worker
+public/js/browser-profiles.js  the localStorage twin of server-profiles.js
 public/js/main.js   scene, sky, lighting, prediction, camera, main loop
-public/js/net.js    socket wrapper, clock sync, snapshot interpolation
+public/js/net.js    clock sync and snapshot interpolation over a Link
+tools/build-static.js  assembles dist/ for GitHub Pages
 public/js/ocean.js  ocean shader (waves, fresnel, sun glitter, foam, haze)
 public/js/ship.js   sloop model, sail shaping, buoyancy from the wave field
 public/js/wake.js   foam ribbon astern
@@ -288,14 +344,38 @@ public/js/hud.js    readouts, warnings and the ship-up compass
 
 `shared/game-host.js` is the whole authoritative game, and it knows nothing about
 sockets, HTTP or the filesystem. It talks to two interfaces defined in
-`shared/transport.js` — a transport (`broadcast` / `send`) and a profile store —
-so the identical simulation can run behind socket.io on Node **or inside a
-browser tab hosting a peer-to-peer lobby over WebRTC data channels**. `server.js`
-is a ~80-line adapter that adds no game rules of its own.
+`shared/transport.js` — a transport (`broadcast` / `send`) and a profile store.
+That is what makes the peer-to-peer build possible, and it is worth being precise
+about what it bought:
 
-`node tools/host-test.js` runs the entire game — sailing, weather, gunnery,
-sinking, XP, talents, crowns — with no server, no sockets and no browser. If that
-passes, the abstraction is real.
+```
+                    transport            profiles           ticked by
+Node server      socket.io            data/profiles.json    setInterval
+Browser lobby    WebRTC data channel  localStorage          a Web Worker
+Tests            an array             a Map                 a for loop
+```
+
+**There is no second implementation of the rules.** `public/js/browser-host.js`
+is 100 lines of plumbing around the same `GameHost` class `server.js` drives. A
+bug in the sailing model is a bug in both, which is the entire point of the
+split — a fork would have quietly drifted.
+
+The client side is symmetrical. `public/js/link.js` is a socket-shaped object
+that queues what you emit until a wire is bound to it, so `Net`, the dock, the
+chandlery, the talent cards and every console cheat were written against
+socket.io and did not change by a line to run over WebRTC.
+
+```
+node tools/host-test.js   the whole game with no transport at all
+node tools/rtc-test.js    two browsers, one sea, no game server anywhere
+```
+
+The second one serves the built site from a sub-path the way Pages does, opens
+two tabs, hosts in one and joins from the other by code, and then checks the
+things that can only be true if the channel is genuinely carrying the game:
+the guest's helm moves the guest's ship *as measured by the host*, the guest's
+broadside takes hull off the host, both captains end up on the host's books, and
+closing the host tab tells the guest rather than freezing them.
 
 **Nothing in `shared/` may import anything environment-specific.**
 
@@ -322,6 +402,9 @@ model and one sea to keep honest.
 ## Dev tools
 
 ```bash
+npm run build                # assemble dist/ — the static site Pages serves
+npm run test:host            # the whole game, no transport, no browser (fast)
+npm run test:rtc             # build, then two browsers over a real data channel
 npm run tune                 # speed polar + what mistrimming costs
 node tools/bot.js 3          # 3 headless crew bots so you can test alone
 node tools/smoke.js          # headless browser: joins, checks the helm answers
@@ -333,8 +416,32 @@ node tools/shop-test.js      # earns crowns, gets refused, buys, wears, photogra
 node tools/diag.js           # overhead plan view for checking the boom's side
 ```
 
-`tools/smoke.js` and `tools/diag.js` need Chrome's system libraries
-(`libnss3`, `libnspr4`). They are not needed to play.
+Anything that drives a browser needs Chrome's system libraries (`libnss3`,
+`libnspr4`); `tools/rtc-test.js` also starts a local [PeerServer] so it does not
+depend on the public broker. None of them are needed to play.
+
+## Deploying
+
+**GitHub Pages** — `.github/workflows/pages.yml` runs on every push to `main`. It
+runs `tools/host-test.js` first (if the rules cannot run headless, the thing
+about to be published could not have worked), builds `dist/`, and deploys. Enable
+it once under *Settings → Pages → Source: GitHub Actions*.
+
+The trick that makes one set of sources work in both places is the import map in
+`index.html`. Every module path in the client is written root-absolute
+(`/shared/physics.js`), which is right under Express and wrong on Pages, where
+the site lives at `/<repo>/`. Rather than rewrite every import, the map re-points
+`/shared/` and `/vendor/` at the document base.
+
+**A real server**, if you want the world to persist and stay up without anyone
+holding a tab open: any host that runs Node. It is a stateful WebSocket process
+with the world in memory, so the static hosts (Pages, Netlify, Cloudflare Pages)
+cannot run it — that is what the peer-to-peer build is for.
+
+> ⚠️ The dev hooks (`grant-crowns`, `grant-coins`, `dev-class`, `dev-picks`,
+> `reset-profile`, `summon-tsunami`, …) let any connected client hand itself
+> anything. Run a public server with **`PIRATE_DEV=0`**. In a browser lobby they
+> are off unless the host opened the page with `?dev=1`.
 
 ## Next: Phase 2
 
