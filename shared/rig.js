@@ -1,7 +1,7 @@
 // Per-class ship geometry. A Flagship is not a big cutter — it is a different
-// vessel: four masts, square sails on three levels, three gun decks and a stern
-// castle. Everything is generated from the class so adding a hull is a table
-// entry, not a modelling job.
+// vessel: four masts rigged square throughout, four tiers of canvas on each,
+// three gun decks and a stern castle. Everything is generated from the class so
+// adding a hull is a table entry, not a modelling job.
 //
 // This lives in shared/ because the CLIENT places the gun meshes from it and
 // the HOST spawns cannonballs from it. If they used separate numbers the shot
@@ -63,16 +63,20 @@ export const RIGS = {
     bow: 0.80, transom: 0.86, sheer: 1.2, castle: 2, beak: 0, mizzen: 'gaff', rake: 0.05,
     features: ['poop','quartergalleries','entryport','boats','lanterns'],
   },
+  // The two biggest are rigged square on all four masts: no headsails on the
+  // bowsprit and no fore-and-aft sail aft, so the silhouette is nothing but
+  // stacked yards. `gaff: 0` hands the aftmost mast its square yards back —
+  // ship.js only skips a mast's yards when it is carrying a gaff or a lateen.
   flagship: {
-    L: 56, B: 15.0, draft: 5.6, decks: 3, masts: 4, yards: 4, gaff: 1, jib: 2,
+    L: 56, B: 15.0, draft: 5.6, decks: 3, masts: 4, yards: 4, gaff: 0, jib: 0,
     quarter: 2.8, forecastle: 1.7, gallery: 2.0, mastH: 37, guns: 20,
-    bow: 0.74, transom: 0.90, sheer: 1.4, castle: 2, beak: 0, mizzen: 'gaff', rake: 0.06,
+    bow: 0.74, transom: 0.90, sheer: 1.4, castle: 2, beak: 0, mizzen: 'none', rake: 0.06,
     features: ['poop','quartergalleries','entryport','boats','lanterns','carvedstern'],
   },
   leviathan: {
-    L: 68, B: 18.0, draft: 6.4, decks: 4, masts: 4, yards: 4, gaff: 1, jib: 3,
+    L: 68, B: 18.0, draft: 6.4, decks: 4, masts: 4, yards: 4, gaff: 0, jib: 0,
     quarter: 3.2, forecastle: 2.0, gallery: 2.8, mastH: 44, guns: 28,
-    bow: 0.86, transom: 0.98, sheer: 1.8, castle: 3, beak: 0, mizzen: 'gaff', rake: 0.08,
+    bow: 0.86, transom: 0.98, sheer: 1.8, castle: 3, beak: 0, mizzen: 'none', rake: 0.08,
     features: ['poop','quartergalleries','entryport','boats','lanterns','carvedstern','rambow'],
   },
 };
@@ -110,8 +114,12 @@ export function mastPositions(rig) {
   const n = rig.masts;
   if (n === 1) return [0.06];
   if (n === 2) return [0.26, -0.16];
-  // Fore, main, mizzen (and a jigger on the biggest), spread over the waist.
-  return [0.34, 0.02, -0.28, -0.44].slice(0, n);
+  // Fore, main, mizzen.
+  if (n === 3) return [0.34, 0.02, -0.28];
+  // Four masts want even spacing over the whole waist. The three-masted plan
+  // with a jigger squeezed in aft was fine while that mast carried a gaff, but
+  // once it is square-rigged its yards sit right on top of the mizzen's.
+  return [0.36, 0.13, -0.10, -0.33];
 }
 
 /** Which masts carry a fore-and-aft sail — always the aftmost ones. */
@@ -144,12 +152,26 @@ export function jibPlan(rig) {
  */
 export function yardPlan(rig, mastIndex) {
   const out = [];
-  const base = rig.masts === 1 ? 1.6 : mastIndex === 0 ? 1.9 : 2.1;
+  // Spread by mast: main widest, fore a little less, and everything abaft the
+  // main shorter again. Without the taper a square-rigged jigger throws a yard
+  // as wide as the mainyard out over the narrowest part of the hull.
+  // (Three-masted ships carry a gaff aft, so index 2 never reached this before —
+  // these numbers leave every existing class exactly as it was.)
+  const SPREAD = [1.9, 2.1, 1.88, 1.6];
+  const base = rig.masts === 1 ? 1.6 : (SPREAD[mastIndex] ?? 2.1);
+
+  // A mast stepped well aft stands on the quarterdeck and the poop above it, so
+  // its lowest yard has to start higher or the course hangs straight through the
+  // aftercastle. (Only reachable on the four-masted classes: everything with
+  // three masts carries a gaff aft and never asks for yards there.)
+  const z = mastPositions(rig)[mastIndex] ?? 0;
+  const lowest = 0.28 + (z < 0 ? Math.min(0.16, -z * 0.42) : 0);
+
   for (let i = 0; i < rig.yards; i++) {
     const t = i / Math.max(1, rig.yards - 1);
     out.push({
       // fraction of mast height where the yard sits
-      at: 0.28 + t * 0.55,
+      at: lowest + t * (0.83 - lowest),
       width: rig.B * base * (1 - t * 0.42),
       height: rig.mastH * (0.22 - t * 0.05),
     });

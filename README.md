@@ -197,7 +197,8 @@ so `shared/rig.js` carries shape as well as size:
 | Frigate | finest | flattest | 1 step | gaff | 2 gun decks |
 | **Galleon** | bluff | huge | **3 steps** | **lateen** | beakhead, masts raked hard aft |
 | Man-of-War | full | moderate | 2 steps | gaff | 3 gun decks |
-| Leviathan | full | high | 3 steps | gaff | 4 gun decks, 4 masts |
+| **Flagship** | full | moderate | 2 steps | **square** | 4 masts, 3 gun decks |
+| **Leviathan** | full | high | 3 steps | **square** | 4 masts, 4 gun decks |
 
 `bow` sets how full the entry is, `transom` how slab-sided the stern is, and
 `sheer` how far the rail sweeps up at the ends — the bulwark is built as a swept
@@ -226,9 +227,26 @@ Man-of-War up, so a rated warship is recognisable from astern at any distance.
 cutter with a gaff main. A Brigantine adds a second mast with square topsails
 forward. A Frigate is fully square-rigged on three masts with two gun decks. A
 Man-of-War puts three decks of guns under the same rig. A Flagship carries four
-masts, sixteen sails on three levels, twelve guns a side and a lit stern castle.
+masts, twenty guns a side and a lit stern castle.
 The whole model is generated from `shared/rig.js`, so adding a hull is a table
 entry rather than a modelling job.
+
+**The two biggest are rigged square all the way round.** Every class up to the
+Man-of-War carries triangular headsails on the bowsprit and a fore-and-aft sail
+on the aftmost mast; the Flagship and the Leviathan carry neither. Four masts,
+four tiers of square canvas on each, sixteen sails and nothing else — which is
+what makes them read as ships of the line rather than as very large frigates.
+
+Two things fell out of squaring the after mast. Its yards would have been as
+wide as the mainyard over the narrowest part of the hull, so yard spread now
+tapers abaft the main; and its courses hung straight through the aftercastle,
+so a mast stepped well aft starts its lowest yard higher. Both are keyed off the
+mast's position, and neither touches a three-masted class — those carry a gaff
+aft and never ask for yards there.
+
+`node tools/rig-shots.js` photographs all nine classes from the bow quarter and
+prints what each one carries, which is the quickest way to see whether a change
+to that table did what it was supposed to.
 
 **`rig.js` is in `shared/` for a reason.** The client places the gun meshes from
 `gunPlacements()` and the host spawns cannonballs from the *same* function, so a
