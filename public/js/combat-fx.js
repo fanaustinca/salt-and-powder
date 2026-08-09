@@ -40,7 +40,9 @@ export class CombatFX {
 
   /** Recreate a whole broadside from the launch data the server sent. */
   onShot(m) {
-    const ship = { x: m.x, z: m.z, heading: m.h, vx: m.vx, vz: m.vz };
+    // `cls` matters: muzzle() looks the hull up from it to find each gun. Left
+    // out, every broadside was laid out on a Sailboat.
+    const ship = { x: m.x, z: m.z, heading: m.h, vx: m.vx, vz: m.vz, cls: m.cls };
     const hot = AMMO[m.ammo]?.burns || AMMO[m.ammo]?.blast;
 
     for (let i = 0; i < m.count; i++) {

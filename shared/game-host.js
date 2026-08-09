@@ -13,7 +13,10 @@ import {
 } from './world.js';
 import { SEA, seaStateFor, tsunamiAt } from './waves.js';
 import { CROWNS, TRAILS } from './cosmetics.js';
-import { TALENTS, statsFor, gunsFor, pointsFree, rollOffer, TALENT_GROUPS } from './combat.js';
+import {
+  TALENTS, statsFor, gunsFor, pointsFree, pointsSpent, rollOffer, TALENT_GROUPS,
+  levelFromXp,
+} from './combat.js';
 import { Combat } from './combat-host.js';
 import { Captain, FACTIONS, fleetFor, bandFor } from './ai.js';
 import { Kraken, KRAKEN } from './kraken.js';
@@ -90,6 +93,19 @@ export class GameHost {
     // Her own consorts must never fight her, and every AI must treat the whole
     // squadron as one enemy — so a captain and her fleet share a faction.
     ship.faction = `crew:${clientId}`;
+
+    // Everything you have EARNED. This used to live only on the ship, which is
+    // built fresh by createShip on every join — so reconnecting, or the host
+    // reloading their tab, silently wiped every level and every talent point
+    // while the coins and the hull came back fine.
+    ship.xp = Math.max(0, Number(profile.xp) || 0);
+    ship.level = levelFromXp(ship.xp);
+    ship.picks = { ...(profile.picks || {}) };
+    const restored = statsFor(ship.picks, ship.cls);
+    ship.maxHp = restored.maxHp;
+    ship.hp = restored.maxHp;
+
+    // After the picks and the level, or the hand is dealt for a fresh captain.
     ship.offer = rollOffer(ship.picks, ship.cls, Math.random, ship.level);
 
     this.players.set(clientId, {
@@ -492,7 +508,11 @@ export class GameHost {
         Object.assign(p.profile, {
           crowns: 0, coins: 0, cls: 'sailboat', armour: 0,
           owned: ['foam'], trail: 'foam',
+          // Levels and talents are saved now, so a wipe has to clear them too
+          // or you come back a bare sailboat still carrying forty talent points.
+          xp: 0, level: 1, picks: {},
         });
+        p.savedSpent = 0;
         this.profiles.dirty = true;
         this.profiles.flush?.();
         const fresh = createShip(p.ship.id, p.ship.name, this.nextSpawnAngle(), 'sailboat');
@@ -645,6 +665,28 @@ export class GameHost {
   }
 
   /** Islands are solid. Run at one and you stop, and it hurts. */
+  /**
+   * Write what a captain has earned back to their profile.
+   *
+   * Levels, XP and talent ranks are ship state, and the ship is rebuilt on
+   * every join — so without this they survived exactly as long as the
+   * connection did. Coins and hulls were saved and the levels were not, which
+   * is a particularly confusing way to lose an evening's play.
+   *
+   * Called every snapshot; the guard makes that free, and the store's own
+   * throttled flush decides when it actually reaches disk or localStorage.
+   */
+  saveProgress(p) {
+    const s = p.ship;
+    const spent = pointsSpent(s.picks);
+    if (p.profile.xp === s.xp && p.profile.level === s.level && p.savedSpent === spent) return;
+    p.savedSpent = spent;
+    p.profile.xp = s.xp;
+    p.profile.level = s.level;
+    p.profile.picks = { ...s.picks };
+    this.profiles.dirty = true;
+  }
+
   keepOffTheRocks(ship) {
     const clear = landClearance(ship.x, ship.z);
     const margin = classOf(ship.cls).beam * 0.6;
@@ -943,6 +985,7 @@ export class GameHost {
     // Private bits only the owner needs — reload timers, XP, barrels, points.
     for (const [id, p] of this.players) {
       const s = p.ship;
+      this.saveProgress(p);
       this.tx.send(id, 'you', {
         hp: s.hp, maxHp: s.maxHp, xp: s.xp, level: s.level,
         picks: s.picks, barrels: s.barrels, ammo: s.ammo, sunk: s.sunk,

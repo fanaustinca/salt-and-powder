@@ -32,6 +32,7 @@ export class LocalProfiles {
     let p = this.map.get(k);
     if (!p) {
       p = { crowns: 0, coins: 0, cls: 'sailboat', armour: 0,
+            xp: 0, level: 1, picks: {},
             owned: [DEFAULT_TRAIL], trail: DEFAULT_TRAIL };
       this.map.set(k, p);
       this.dirty = true;
@@ -44,6 +45,11 @@ export class LocalProfiles {
     if (!Number.isFinite(p.crowns)) p.crowns = 0;
     if (!Number.isFinite(p.coins)) p.coins = 0;
     if (!Number.isFinite(p.armour)) p.armour = 0;
+    // Levels and talents are earned, so they are saved too — see
+    // GameHost.saveProgress(). Heal anything hand-edited or pre-dating them.
+    if (!Number.isFinite(p.xp)) p.xp = 0;
+    if (!Number.isFinite(p.level)) p.level = 1;
+    if (!p.picks || typeof p.picks !== 'object') p.picks = {};
     if (!p.cls) p.cls = 'sailboat';
     return p;
   }

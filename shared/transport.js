@@ -66,6 +66,7 @@ export class MemoryProfiles {
     if (!this.map.has(k)) {
       this.map.set(k, {
         crowns: 0, coins: 0, cls: 'sailboat', armour: 0,
+        xp: 0, level: 1, picks: {},
         owned: [this.defaultTrail], trail: this.defaultTrail,
       });
     }

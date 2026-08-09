@@ -67,4 +67,53 @@ for (const cls of ['sailboat', 'cutter', 'brigantine', 'corvette', 'frigate',
 console.log(allGood ? 'OK — every gun fires a ball.' : 'FAILED — guns are not all firing.');
 if (!allGood) process.exit(1);
 
-process.exit(worst < 0.5 && allGood ? 0 : 1);
+// --- the client must be able to REBUILD the broadside from the broadcast -----
+// The balls you watch are replayed on the client from the 'shot' event, while
+// the balls that score are the host's. If the payload is missing anything
+// muzzle() needs, the two silently disagree: `cls` was absent, so the client
+// laid every broadside out on a Sailboat — three gun positions for a
+// twenty-eight-gun ship, with every ball past the third stacked on one point.
+// The splashes were still right, because the host had the real hull, which is
+// what made it look like the guns were fine and the muzzles were not.
+console.log('\nreplaying each broadcast the way the client does:');
+let replayWorst = 0;
+for (const cls of ['sailboat', 'brigantine', 'frigate', 'manofwar', 'leviathan']) {
+  gp.ship.cls = cls;
+  gp.ship.picks = { broadside: 40 };
+  gp.ship.reload = { port: 0, starboard: 0, bow: 0, stern: 0 };
+  Object.assign(gp.ship, { x: 40, z: -25, heading: 1.1, vx: 0, vz: 0, sunk: false });
+  h2.combat.shots.length = 0;
+  const before = tx2.sent.length;
+  h2.message('g', 'fire', { b: Math.PI / 2, r: 90 });
+  const ev = tx2.sent.slice(before).find((m) => m.event === 'shot')?.data;
+  const fired = h2.combat.shots.slice();
+  if (!ev || !fired.length) { allGood = false; continue; }
+
+  // Exactly what public/js/combat-fx.js does with the payload.
+  const ship = { x: ev.x, z: ev.z, heading: ev.h, vx: ev.vx, vz: ev.vz, cls: ev.cls };
+  let off = 0;
+  let spread = 0;
+  const along = [];
+  for (let i = 0; i < ev.count; i++) {
+    const m = muzzle(ship, ev.battery, i, ev.count, ev.seed, ev.rb, ev.el);
+    off = Math.max(off, Math.hypot(m.x - fired[i].x, m.z - fired[i].z), Math.abs(m.y - fired[i].y));
+    along.push(m);
+  }
+  for (const a of along) {
+    for (const b of along) spread = Math.max(spread, Math.hypot(a.x - b.x, a.z - b.z));
+  }
+  replayWorst = Math.max(replayWorst, off);
+  console.log(`${cls.padEnd(11)} ${String(ev.count).padStart(2)} balls — replay off by ` +
+    `${off.toFixed(3)} m, spread across ${spread.toFixed(1)} m of her side`);
+  // A full broadside must occupy the ship, not a point.
+  if (ev.count >= 6 && spread < rigOf(cls).L * 0.4) {
+    console.log(`  <-- ${cls}: ${ev.count} balls bunched into ${spread.toFixed(1)} m`);
+    allGood = false;
+  }
+}
+const replayOk = replayWorst < 0.01;
+console.log(replayOk
+  ? 'OK — the client rebuilds exactly the broadside the host fired.'
+  : `FAILED — the client's replay is off by ${replayWorst.toFixed(2)} m.`);
+
+process.exit(worst < 0.5 && allGood && replayOk ? 0 : 1);

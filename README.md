@@ -417,6 +417,14 @@ level, pick and trail you had earned.
 launch data they are sent, so what you watch is what the server already scored —
 a client cannot invent a hit.
 
+That replay is only as good as the payload. `cls` was missing from it, so the
+client looked the hull up and got a **Sailboat** — three gun positions for a
+broadside of twenty-eight, with every ball past the third stacked on the same
+point. The balls flew as a tight knot while the splashes, scored by the host
+with the real hull, landed properly spread across the sea. `muzzle-test` now
+rebuilds each broadcast exactly the way `combat-fx.js` does and compares it with
+the shots the host actually created — 0.000 m, or it fails.
+
 ## Phase 4 — what else is out there
 
 **AI fleets.** Squadrons of the Spanish Armada, Dutch Navy, Freebooters and
@@ -505,6 +513,14 @@ Doubloon, Spectre and Black Powder, from 45 up to 520. The bright ones glow and
 burn additively over the water; a bought trail also streams roughly twice as far
 astern as plain foam, so other players can see what you are wearing from a way
 off. Trails ride on every ship in the world, not just your own.
+
+**Everything you earn is saved**, keyed by captain name: Crowns, Coins, the hull
+you bought, your armour, your trail — and your XP, level and talent ranks. Those
+last three used to live only on the ship, which `createShip` rebuilds on every
+join, so reconnecting silently wiped every level and every talent point while
+the coins and the Man-of-War came back intact. `GameHost.saveProgress()` writes
+them back each snapshot; a Node host keeps them in `data/profiles.json` and a
+browser lobby in the host's `localStorage`, through the same five-call interface.
 
 The catalogue is `shared/cosmetics.js` — adding a trail is one entry. **Every
 purchase is validated server-side** against that table, so a client cannot grant
@@ -615,6 +631,7 @@ node tools/touch-test.js     # an emulated iPhone and iPad: helm, sail, tap-to-f
 npm run tune                 # per class: top speed, time to reach it, rate of turn
 node tools/aground-test.js   # run her ashore, then get off again
 node tools/balance-test.js   # what a beginner meets, and the Kraken's numbers
+node tools/persist-test.js   # levels and talents survive leaving and coming back
 node tools/hull-test.js      # every hull closed, facing outward, guns in her side
 node tools/gunfit-test.js    # balls leave the barrels you can SEE, at any armament
 node tools/rig-shots.js      # photograph all nine hulls, and count their sails

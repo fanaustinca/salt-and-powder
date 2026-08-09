@@ -87,6 +87,13 @@ export class Combat {
     this.tx.broadcast('shot', {
       by: ship.id, battery: batteryKey, ammo: ship.ammo, count, seed,
       rb: trained, el: elevation,
+      // The CLASS has to travel with the launch data. muzzle() looks the hull
+      // up from it, and without it the client fell back to a Sailboat: three
+      // gun positions for a broadside of twenty-eight, so every ball past the
+      // third spawned on top of the same one. The balls flew as a tight knot
+      // while the splashes — scored by the host, which had the right hull —
+      // landed properly spread.
+      cls: ship.cls,
       x: ship.x, z: ship.z, h: ship.heading, vx: ship.vx, vz: ship.vz,
       t: this.now(),
     });
