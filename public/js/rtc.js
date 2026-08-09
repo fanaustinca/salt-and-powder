@@ -54,7 +54,11 @@ function brokerOptions() {
   const [host, port, path] = raw.split(':');
   opts.host = host;
   if (port) opts.port = Number(port);
-  opts.secure = opts.port !== 80 && opts.port !== 9000;
+  // A broker you are running yourself on this machine is plain HTTP; anything
+  // else is HTTPS unless it says port 80. Guessing from the port number alone
+  // meant a local PeerServer on 9001 was dialled over TLS and simply hung.
+  const local = /^(localhost|127\.0\.0\.1|\[::1\]|::1)$/i.test(host);
+  opts.secure = !local && opts.port !== 80;
   if (path) opts.path = path.startsWith('/') ? path : `/${path}`;
   return opts;
 }

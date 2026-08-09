@@ -76,6 +76,39 @@ sea either way.
 | drag / wheel | Look around, zoom |
 | `Shift`+`T` | Dev: summon a rogue wave instead of waiting for one |
 
+## Console cheats
+
+Open devtools and type `cheat.help()`. They only work where the host has dev
+hooks on: a Node server has them on by default (`PIRATE_DEV=0` turns them off),
+and a **browser lobby needs the host to have opened the page with `?dev=1`** —
+so on the published site that is
+
+```
+https://fanaustinca.github.io/salt-and-powder/?dev=1
+```
+
+```js
+cheat.kraken()          // she comes up now, instead of on her own timer
+cheat.fleet('dutch')    // armada | dutch | treasure | pirate
+cheat.ship('leviathan') // command any hull without paying for it
+cheat.picks({ broadside: 27, bowchaser: 1, sternchaser: 1, gunnery: 8 })
+cheat.tsunami(30, 20)   // a 30 m crest, arriving in 20 seconds
+cheat.xp(4000)          // levels, and so talent cards
+cheat.coins(50000); cheat.crowns(5000)
+cheat.cargo(99); cheat.hurt(50)
+cheat.goto('home')      // or a haven by index or name
+cheat.reset()           // wipe this captain back to a bare sailboat
+```
+
+**The Kraken will not surface inside a Safe Haven ring** — nothing can be hurt
+in there, so she would just be an animation flailing at nobody. If
+`cheat.kraken()` appears to do nothing, sail out of the white circle first. Same
+for being sunk: she needs a hull to come up beside.
+
+Every cheat is validated and capped by the host, so a bigger number does not get
+you a bigger number, and a client whose host has cheats off is simply ignored.
+`node tools/cheat-test.js` runs all of them and checks both halves of that.
+
 ## Handling
 
 `W`/`S` is the throttle, `A`/`D` the helm. **There is no wind mechanic** — every
@@ -406,6 +439,7 @@ npm run build                # assemble dist/ — the static site Pages serves
 npm run test:host            # the whole game, no transport, no browser (fast)
 npm run test:rtc             # build, then two browsers over a real data channel
 node tools/live-check.js     # drive the PUBLISHED site with the real broker
+node tools/cheat-test.js     # every console cheat, and the dev gate that hides them
 npm run tune                 # speed polar + what mistrimming costs
 node tools/bot.js 3          # 3 headless crew bots so you can test alone
 node tools/smoke.js          # headless browser: joins, checks the helm answers

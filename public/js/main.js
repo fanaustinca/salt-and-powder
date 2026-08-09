@@ -544,9 +544,11 @@ frame();
 
 // Handy from the devtools console (and used by tools/smoke.js).
 /**
- * Console cheats. These only work while the host has dev hooks enabled
- * (PIRATE_DEV != 0), and every one of them is validated and capped server-side —
- * typing a bigger number does not get you a bigger number.
+ * Console cheats. These only work while the host has dev hooks enabled — on a
+ * Node server that is `PIRATE_DEV != 0` (the default), and in a browser lobby
+ * it is the host having opened the page with `?dev=1`. Every one of them is
+ * validated and capped by the host, so typing a bigger number does not get you
+ * a bigger number, and a client whose host has cheats off is simply ignored.
  */
 window.cheat = {
   crowns: (n = 5000) => { net.socket.emit('grant-crowns', n); return `+${Math.min(n, 5000)} crowns`; },
@@ -572,8 +574,53 @@ window.cheat = {
     return `alongside ${isle.name}`;
   },
   where: () => (({ x, z }) => `${x.toFixed(0)}, ${z.toFixed(0)}`)(me || { x: 0, z: 0 }),
+
+  /**
+   * Bring the Kraken up now instead of waiting out her timer.
+   *
+   * She will not surface under a Safe Haven — nothing can be hurt inside the
+   * ring, so a Kraken in there is an animation flailing at nobody — and she
+   * needs a hull afloat to come up beside. If nothing happens, that is why.
+   */
+  kraken: () => {
+    if (!me || me.sunk) return 'you need to be afloat for her to come up under';
+    net.socket.emit('dev-kraken');
+    return 'something is coming up under you — get out of the ring if you are in one';
+  },
+
+  /** Put a squadron over the horizon: armada, dutch, treasure or pirate. */
+  fleet: (faction = 'armada') => {
+    net.socket.emit('dev-fleet', faction);
+    return `${faction} squadron forming up`;
+  },
+
+  /** Command a hull outright, skipping the coins. `cheat.ship('flagship')`. */
+  ship: (cls = 'flagship') => {
+    net.socket.emit('dev-class', cls);
+    return `you now command a ${cls}`;
+  },
+
+  /**
+   * Set talent ranks directly — the fast way to test an armament.
+   * `cheat.picks({ broadside: 20, bowchaser: 1, sternchaser: 1, gunnery: 8 })`
+   *
+   * Keys are checked against the talent table first. The host silently ignores
+   * a rank it does not recognise, so a typo — `bow` for `bowchaser`, say —
+   * looks exactly like the cheat being broken.
+   */
+  picks: async (picks = { broadside: 40, bowchaser: 1, sternchaser: 1 }) => {
+    const { TALENTS } = await import('/shared/combat.js');
+    const bad = Object.keys(picks).filter((k) => !TALENTS[k]);
+    if (bad.length) {
+      return `no such talent: ${bad.join(', ')}\nvalid: ${Object.keys(TALENTS).join(', ')}`;
+    }
+    net.socket.emit('dev-picks', picks);
+    return JSON.stringify(picks);
+  },
+
   /** Wipe this captain back to a bare sailboat: no coins, crowns, levels or trails. */
   reset: () => { net.socket.emit('reset-profile'); return 'profile wiped'; },
+
   help: () => console.table({
     'cheat.crowns(n)': 'up to 5000 a call',
     'cheat.coins(n)': 'up to 50000 a call',
@@ -581,6 +628,10 @@ window.cheat = {
     'cheat.cargo(n)': 'fill the hold',
     'cheat.hurt(n)': 'take hull damage',
     'cheat.tsunami(h,s)': 'rogue wave h metres tall, in s seconds',
+    'cheat.kraken()': 'she comes up now (not inside a Safe Haven ring)',
+    'cheat.fleet(f)': 'armada | dutch | treasure | pirate',
+    'cheat.ship(c)': 'command any hull, e.g. "leviathan"',
+    'cheat.picks({..})': 'ranks: broadside, bowchaser, sternchaser, gunnery…',
     'cheat.goto(0)': 'haven by index, name, or "home"',
     'cheat.where()': 'your position',
     'cheat.reset()': 'wipe this captain back to a bare sailboat',
