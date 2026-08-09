@@ -16,6 +16,16 @@ export const TICK_HZ = 30;
 export const TICK_DT = 1 / TICK_HZ;
 export const SNAPSHOT_HZ = 15;
 
+/**
+ * How much helm she still answers with no way on at all, as a fraction of full
+ * steerage. Realistically this would be zero — a rudder does nothing without
+ * water moving past it — but zero makes running aground unrecoverable: stopped
+ * against a beach with the bow into it, you cannot turn, and sail only drives
+ * you further on. Being able to work her round slowly is worth more than the
+ * realism.
+ */
+export const MIN_STEERAGE = 0.34;
+
 export const WORLD = {
   radius: 2500,
   spawnRadius: 260,
@@ -192,8 +202,17 @@ export function stepShip(ship, input, dt, time = null) {
     ship.vz -= 9.81 * 0.8 * _slope.z * dt;
   }
 
-  // --- steering: no water over the rudder means no steerage ---
-  const steerage = clamp(Math.abs(vf) / (cls.maxSpeed * 0.22), 0, 1) * Math.sign(vf || 1);
+  // --- steering: she answers best with water flowing over the rudder ---
+  // But never not at all. Zero steerage at zero speed meant a ship stopped
+  // against a beach could not turn away from it, and drove straight back on
+  // every time you gave her sail — a dead end you could only leave by sinking.
+  // The floor is her being worked round with sweeps and a kedge: slow, but
+  // always possible.
+  const way = clamp(Math.abs(vf) / (cls.maxSpeed * 0.22), 0, 1);
+  // Making sternway reverses the helm, but only once she really is going
+  // astern — flipping it either side of dead stop makes the wheel feel random.
+  const sense = vf < -cls.maxSpeed * 0.04 ? -1 : 1;
+  const steerage = Math.max(way, MIN_STEERAGE) * sense;
   const torque = -(input.rudder || 0) * cls.turn * stats.rudder * steerage;
   ship.omega += (torque - ship.omega * cls.angDamp) * dt;
   ship.heading = normalizeAngle(ship.heading + ship.omega * dt);

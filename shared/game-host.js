@@ -649,14 +649,25 @@ export class GameHost {
     const nx = ship.x - nearest.x;
     const nz = ship.z - nearest.z;
     const len = Math.hypot(nx, nz) || 1;
-    const want = nearest.radius + margin;
-    ship.x = nearest.x + (nx / len) * want;
-    ship.z = nearest.z + (nz / len) * want;
+    const ux = nx / len;
+    const uz = nz / len;
+    // Set her down a hair OUTSIDE the margin, not exactly on it. Parked exactly
+    // on it, `clear > margin` was false for ever, so this ran every tick.
+    const want = nearest.radius + margin * 1.04;
+    ship.x = nearest.x + ux * want;
+    ship.z = nearest.z + uz * want;
 
-    // Bleed off the way she had on, and take a knock for the grounding.
-    const into = -(ship.vx * (nx / len) + ship.vz * (nz / len));
-    ship.vx *= 0.25;
-    ship.vz *= 0.25;
+    const into = -(ship.vx * ux + ship.vz * uz);   // +ve = still driving ashore
+    // Stop the way she has on TOWARD the beach, and leave the rest. Scaling the
+    // whole velocity meant that even pointing out to sea, every tick quartered
+    // whatever speed she had just built — she could never get off again.
+    if (into > 0) {
+      ship.vx += ux * into;
+      ship.vz += uz * into;
+    }
+    // What is left still drags: grounding should cost you way, not all of it.
+    ship.vx *= 0.82;
+    ship.vz *= 0.82;
     if (into > 4 && !ship.sunk) {
       const p = [...this.players.values()].find((q) => q.ship === ship);
       this.combat.damage(ship, into * 1.6, null, { x: ship.x, y: 1, z: ship.z }, 'ground');

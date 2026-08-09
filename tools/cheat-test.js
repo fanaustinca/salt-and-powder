@@ -60,11 +60,16 @@ const open = async (query) => {
   await page.goto(`http://localhost:${PORT}${BASE}/?${query}&broker=localhost:${SIGNAL_PORT}`,
     { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.waitForSelector('#hostlobby');
+  // Read the card's own text before the lobby overwrites it with its progress.
+  await page.waitForFunction(() => document.getElementById('joinstatus').textContent.length > 0,
+    { timeout: 15000 }).catch(() => {});
+  const announced = await page.$eval('#joinstatus', (el) => el.textContent.trim());
   await page.$eval('#name', (el) => { el.value = ''; });
   await page.type('#name', 'Cheater');
   await page.click('#hostlobby');
   await page.waitForFunction(() => window.__game?.me, { timeout: 40000 });
   await wait(2500);
+  return announced;
 };
 
 const you = () => page.evaluate(() => {
@@ -148,10 +153,31 @@ const wiped = await you();
 check('reset', wiped.cls === 'sailboat' && wiped.coins === 0,
   `${wiped.cls}, ${wiped.coins} coins, ${wiped.guns.port} gun a side`);
 
-// ------------------------------------------------ cheats OFF (no ?dev=1)
+// --------------------------------------- the flag sticks, so it is findable
+// Requiring ?dev=1 on every load meant the cheats looked broken the moment you
+// opened the game from a bookmark — which is how they were reported.
+console.log('\nreturning without the parameter:');
+const announced = await open('bookmarked=1');
+const remembered = await page.evaluate(() => localStorage.getItem('pirate.dev'));
+const sticky = await you();
+await run('cheat.coins(50000)');
+await wait(800);
+const stickyAfter = await you();
+const stuck = stickyAfter.coins > sticky.coins;
+console.log(`  ${stuck ? '✓' : '✗'} still on (pirate.dev=${remembered}) — ` +
+  `${sticky.coins} -> ${stickyAfter.coins} coins`);
+if (!stuck) problems.push('the dev flag did not survive a reload without ?dev=1');
+
+console.log(`  join card said: "${announced.slice(0, 80)}"`);
+if (!/cheats on/i.test(announced)) {
+  problems.push('the join card did not say the cheats were on — silently-on is as ' +
+    'confusing as silently-off');
+}
+
+// ------------------------------------------------ and ?dev=0 turns them off
 // The gate matters more than the cheats: this is a public URL.
-console.log('\nwithout ?dev=1 (a public lobby):');
-await open('nodev=1');
+console.log('\nwith ?dev=0 (a public lobby):');
+await open('dev=0');
 const plain = await you();
 await run('cheat.coins(50000); cheat.ship("leviathan"); cheat.kraken(); cheat.fleet()');
 await wait(2500);
@@ -159,7 +185,18 @@ const still = await you();
 const refused = still.coins === plain.coins && still.cls === plain.cls && !still.kraken;
 console.log(`  ${refused ? '✓' : '✗'} host refused them all — ` +
   `${still.coins} coins, still a ${still.cls}, kraken ${still.kraken}`);
-if (!refused) problems.push('a lobby without ?dev=1 honoured the cheats anyway');
+if (!refused) problems.push('a lobby with ?dev=0 honoured the cheats anyway');
+
+// A fresh browser must start with them off, sticky flag or not.
+const fresh = await browser.createBrowserContext();
+const clean = await fresh.newPage();
+await clean.goto(`http://localhost:${PORT}${BASE}/?broker=localhost:${SIGNAL_PORT}`,
+  { waitUntil: 'domcontentloaded', timeout: 60000 });
+await clean.waitForSelector('#hostlobby');
+const freshDev = await clean.evaluate(() => localStorage.getItem('pirate.dev'));
+console.log(`  a browser that never asked: pirate.dev=${freshDev} (expect null)`);
+if (freshDev) problems.push('a fresh browser had the dev flag set without asking');
+await fresh.close();
 
 await browser.close();
 files.close();

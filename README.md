@@ -133,12 +133,19 @@ is playable in your hand.
 
 Open devtools and type `cheat.help()`. They only work where the host has dev
 hooks on: a Node server has them on by default (`PIRATE_DEV=0` turns them off),
-and a **browser lobby needs the host to have opened the page with `?dev=1`** —
-so on the published site that is
+and a browser lobby needs the host to have asked for them once:
 
 ```
-https://fanaustinca.github.io/salt-and-powder/?dev=1
+https://fanaustinca.github.io/salt-and-powder/?dev=1     turn them on, and remember
+https://fanaustinca.github.io/salt-and-powder/?dev=0     turn them off again
 ```
+
+**The flag sticks** in that browser's `localStorage` after the first visit,
+because needing the parameter on every load meant the cheats looked broken the
+moment you opened the game from a bookmark — and an invite link carries only the
+room code. The join card says "Cheats on" when they are, since silently-off dev
+hooks are indistinguishable from broken ones. It only ever affects a lobby *you*
+host; a guest gets whatever their host allows.
 
 ```js
 cheat.kraken()          // she comes up now, instead of on her own timer
@@ -168,6 +175,14 @@ you a bigger number, and a client whose host has cheats off is simply ignored.
 heading makes the same speed, so you steer and shoot rather than manage a rig.
 There is **no astern** either: a sailing ship cannot back up, so she takes a
 while to gather way and a while to lose it. Plan your approach to a jetty.
+
+**She turns better with way on, but she always turns.** Rate of turn scales with
+speed — measured at about 2.9× flat out versus dead in the water, on every class
+— because a rudder needs water moving past it. It does *not* go to zero, though,
+and that floor is not realism, it is a rescue: with no steerage at all, a ship
+stopped against a beach could not turn away from the beach, and sail only drove
+her further on. The only way out was to sink. You can always work her round now,
+slowly. `npm run tune` prints the whole table.
 
 ```
                         top   hull  guns/side  hold      cost   rig
@@ -259,7 +274,10 @@ Sails furl. Below about a third throttle the canvas rolls up to the yards, so a
 ship lying stopped has a completely different silhouette from one under way.
 
 Bigger hulls hit harder and carry more, and pay for it in speed and turning.
-Islands are solid: run at one and you stop, and it costs you hull.
+Islands are solid: run at one and you stop, and it costs you hull. Grounding
+kills the way you had on *toward* the land and leaves the rest, so you can sail
+off again — scaling the whole velocity meant that even pointed out to sea, every
+tick quartered whatever speed you had just built, and you never got away.
 
 ## Trade
 
@@ -512,7 +530,8 @@ npm run test:rtc             # build, then two browsers over a real data channel
 node tools/live-check.js     # drive the PUBLISHED site with the real broker
 node tools/cheat-test.js     # every console cheat, and the dev gate that hides them
 node tools/touch-test.js     # an emulated iPhone and iPad: helm, sail, tap-to-fire
-npm run tune                 # speed polar + what mistrimming costs
+npm run tune                 # per class: top speed, time to reach it, rate of turn
+node tools/aground-test.js   # run her ashore, then get off again
 node tools/bot.js 3          # 3 headless crew bots so you can test alone
 node tools/smoke.js          # headless browser: joins, checks the helm answers
                              # correctly, summons a rogue wave, screenshots ./shots

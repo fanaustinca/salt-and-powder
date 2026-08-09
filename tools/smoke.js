@@ -36,6 +36,15 @@ await wait(3000);
 // of the turn, and this reported a mirrored helm on a build whose helm was fine.
 await page.keyboard.down('KeyW');
 await wait(4000);
+// Watch for anything that would move her other than the rudder. A Kraken arm or
+// an AI broadside that sinks her mid-measurement respawns her on a fresh random
+// heading, and the swing that produces is unrelated to the helm — reporting it
+// as a mirrored helm sends you hunting a bug that is not there.
+await page.evaluate(() => {
+  window.__disturbed = null;
+  window.__game.net.socket.on('respawned', () => { window.__disturbed = 'she was sunk and refitted'; });
+  window.__game.net.socket.on('aground', () => { window.__disturbed = 'she ran aground'; });
+});
 const before = await page.evaluate(() => ({ h: window.__game.me.heading }));
 await page.keyboard.down('KeyD');
 await wait(1600);
@@ -47,9 +56,29 @@ const helm = await page.evaluate(async (h0) => {
   // The camera's own right-hand axis, straight out of its world matrix.
   const right = new THREE.Vector3().setFromMatrixColumn(g.camera.matrixWorld, 0).setY(0).normalize();
   const swing = bow(g.me.heading).sub(bow(h0));
-  return { turnedOnScreen: swing.dot(right) > 0 ? 'RIGHT' : 'LEFT', delta: +swing.length().toFixed(3) };
+  const w = await import('/shared/world.js');
+  return {
+    turnedOnScreen: swing.dot(right) > 0 ? 'RIGHT' : 'LEFT',
+    delta: +swing.length().toFixed(3),
+    disturbed: window.__disturbed,
+    // If she barely swung, the useful question is whether she had any way on.
+    speed: +(g.me.speed * 1.94384).toFixed(1),
+    throttle: +g.me.throttle.toFixed(2),
+    clear: +w.landClearance(g.me.x, g.me.z).toFixed(0),
+    touch: document.body.classList.contains('touch'),
+  };
 }, before.h);
-console.log(`held D  ->  bow swung ${helm.turnedOnScreen} on screen (expected RIGHT)`);
+if (helm.disturbed) {
+  console.log(`held D  ->  INCONCLUSIVE: ${helm.disturbed} mid-measurement, so the ` +
+    'swing is not the rudder\'s. Re-run.');
+} else {
+  console.log(`held D  ->  bow swung ${helm.turnedOnScreen} on screen (expected RIGHT)` +
+    `  [${helm.speed} kn, throttle ${helm.throttle}, ${helm.clear} m of land, ` +
+    `touch ${helm.touch}, swing ${helm.delta}]`);
+  if (helm.delta < 0.05) {
+    console.log('    ^ she barely swung, so that direction is noise, not a verdict.');
+  }
+}
 
 await wait(2500);
 await page.screenshot({ path: `${OUT}/sailing.png` });

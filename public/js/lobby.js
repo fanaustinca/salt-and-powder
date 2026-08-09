@@ -24,6 +24,27 @@ async function serverPresent() {
   }
 }
 
+/**
+ * Are the dev hooks on for lobbies this browser hosts?
+ *
+ * `?dev=1` turns them on and is REMEMBERED, `?dev=0` turns them off again.
+ * Requiring the parameter every time meant the cheats looked broken the moment
+ * you opened the game from a bookmark or an invite link — and an invite link
+ * carries only the room code. This only ever affects a lobby you host yourself:
+ * a guest gets whatever their host allows, which is the check that matters on a
+ * public URL.
+ */
+function devWanted() {
+  const asked = new URLSearchParams(location.search).get('dev');
+  try {
+    if (asked === '1') { localStorage.setItem('pirate.dev', '1'); return true; }
+    if (asked === '0') { localStorage.removeItem('pirate.dev'); return false; }
+    return localStorage.getItem('pirate.dev') === '1';
+  } catch {
+    return asked === '1';   // private browsing: honour the parameter alone
+  }
+}
+
 /** socket.io, imported only if we are actually going to use it. */
 async function connectServer(link) {
   const url = new URL('socket.io/socket.io.esm.min.js', document.baseURI).href;
@@ -56,7 +77,7 @@ export class Lobby {
     this.routes = $('routes');
     this.codebox = $('codebox');
     this.code = $('code');
-    this.dev = /(^|[?&])dev=1/.test(location.search);
+    this.dev = devWanted();
 
     this.name.value = localStorage.getItem('pirate.name') || '';
 
@@ -79,9 +100,12 @@ export class Lobby {
     const hasServer = await serverPresent();
     $('sail').hidden = !hasServer;
     $('orline').hidden = !hasServer;
-    this.say(hasServer
+    // Say whether cheats are live. Silently-off dev hooks are indistinguishable
+    // from broken ones, which is exactly how they got reported as broken.
+    const cheats = this.dev ? ' Cheats on — cheat.help() in the console.' : '';
+    this.say((hasServer
       ? 'Sail on this server, or open a lobby your friends join by code.'
-      : 'No server here — one of you hosts the sea, the rest join by code.');
+      : 'No server here — one of you hosts the sea, the rest join by code.') + cheats);
 
     if (invite) {
       this.code.value = normaliseCode(invite);
