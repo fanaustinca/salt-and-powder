@@ -40,6 +40,9 @@ export class Hud {
       fleettext: $('fleettext'),
       sunkmsg: $('sunkmsg'),
       sunkdetail: $('sunkdetail'),
+      krakenbar: $('krakenbar'),
+      krakenfill: $('krakenbar')?.querySelector('i'),
+      krakennum: $('krakenbar')?.querySelector('.n'),
     };
     this.canvas = $('compass');
     this.ctx = this.canvas.getContext('2d');
@@ -64,6 +67,7 @@ export class Hud {
   update(ship, others, net, wave, you) {
     const e = this.el;
     if (you) this.#battle(you);
+    this.#kraken(net?.kraken);
     // Signed, so being shoved astern by a sea reads as negative on the log.
     e.speed.textContent = msToKnots(Math.sign(ship.vf ?? 1) * ship.speed).toFixed(1);
     e.heading.textContent = String(bearingOf(ship.heading)).padStart(3, '0') + '°';
@@ -144,6 +148,17 @@ export class Hud {
   }
 
   /** Rogue-wave warning: counts down this ship's own arrival, not the world's. */
+  /** Her hull while she is up. Hidden the instant she is not. */
+  #kraken(k) {
+    const bar = this.el.krakenbar;
+    if (!bar) return;
+    bar.hidden = !k;
+    if (!k) return;
+    const frac = Math.max(0, Math.min(1, k.hp / (k.maxHp || 1)));
+    this.el.krakenfill.style.width = `${(frac * 100).toFixed(1)}%`;
+    this.el.krakennum.textContent = `${Math.round(k.hp)} / ${k.maxHp}`;
+  }
+
   #alert(wave) {
     const el = this.el.alert;
     if (!wave || wave.eta > 45 || wave.eta < -7) {

@@ -7,12 +7,25 @@
 
 export const KRAKEN = {
   hp: 2600,
+  // ...but only against a captain who could plausibly spend it. A level-1 hull
+  // has one gun a side doing about 18 a ball: 2,600 hull is a hundred and fifty
+  // hits, which is not a hard fight, it is an invulnerable one. She is sized to
+  // whoever she comes up under instead.
+  baseHp: 620,
+  hpPerLevel: 52,
   reach: 78,            // how far the arms sweep
   arms: 8,
   windUp: 1.6,          // seconds an arm is raised before it comes down
-  slamDamage: 95,
+  // Damage is a bite out of whatever she hits, not a flat number. At a flat 95
+  // with eight arms on a 3.4 s cycle she was doing about 140 a second, which
+  // takes a 1,250-hull Leviathan down in nine — every hull in the game died at
+  // the same rate, so buying a bigger one bought you nothing against her.
+  slamFrac: 0.055,      // of the target's maximum hull
+  slamMin: 8,
+  slamMax: 58,
   slamRadius: 22,
-  armCooldown: 3.4,
+  armCooldown: 5.2,
+  minLevel: 8,          // she does not come up under a beginner at all
   submergeAt: 0.0,
   lifetime: 240,        // gives up and sinks after this long
   bounty: { xp: 900, crowns: 260, cargo: 26 },
@@ -35,11 +48,14 @@ function makeArm(i, n) {
 }
 
 export class Kraken {
-  constructor(x, z, now) {
+  /** @param level the level of the captain she surfaced beside. */
+  constructor(x, z, now, level = 1) {
     this.x = x;
     this.z = z;
-    this.hp = KRAKEN.hp;
-    this.maxHp = KRAKEN.hp;
+    const hp = Math.min(KRAKEN.hp,
+      Math.round(KRAKEN.baseHp + KRAKEN.hpPerLevel * Math.max(0, level - 1)));
+    this.hp = hp;
+    this.maxHp = hp;
     this.born = now;
     this.dead = false;
     this.rise = 0;                 // 0 submerged, 1 fully up
@@ -106,7 +122,9 @@ export class Kraken {
             const d = Math.hypot(s.x - arm.targetX, s.z - arm.targetZ);
             if (d > KRAKEN.slamRadius) continue;
             const falloff = 1 - d / KRAKEN.slamRadius;
-            hit(s, KRAKEN.slamDamage * falloff, { x: arm.targetX, y: 2, z: arm.targetZ });
+            const bite = Math.min(KRAKEN.slamMax,
+              Math.max(KRAKEN.slamMin, (s.maxHp || 100) * KRAKEN.slamFrac));
+            hit(s, bite * falloff, { x: arm.targetX, y: 2, z: arm.targetZ });
           }
           arm.state = 'recover';
           arm.t = 0;

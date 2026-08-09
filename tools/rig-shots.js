@@ -75,8 +75,8 @@ for (const cls of CLASSES) {
     // square rig: the yards point straight at the camera and every sail is
     // edge-on, so a full suit of canvas reads as a row of vertical strips.
     const span = Math.max(size.z, size.y * 1.4);
-    cam.position.set(span * 0.82, mid.y + size.y * 0.30, span * 0.66);
-    cam.lookAt(mid.x, mid.y + size.y * 0.10, mid.z);
+    cam.position.set(span * 1.02, mid.y + size.y * 0.28, span * 0.82);
+    cam.lookAt(mid.x, mid.y, mid.z);
     cam.updateProjectionMatrix();
 
     const kinds = {};

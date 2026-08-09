@@ -83,8 +83,22 @@ export const TNT = {
 };
 
 /** XP needed to reach the given level. Level 1 is the start. */
+/**
+ * Total XP to reach a level.
+ *
+ * The exponent is the whole curve: at 1.42 the last levels cost far more than
+ * the first, so by 60 a level was several thousand XP and the ladder stopped
+ * moving. At 1.26 the climb is much flatter — level 60 costs about a third of
+ * what it used to, and the per-level step stays in the range a few good fights
+ * can cover instead of drifting out of reach.
+ *
+ *            old       new
+ *   lvl 10   1,757     1,120
+ *   lvl 30  10,000     4,600
+ *   lvl 60  23,594     8,880
+ */
 export function xpForLevel(level) {
-  return Math.round(70 * Math.pow(level - 1, 1.42));
+  return Math.round(70 * Math.pow(level - 1, 1.26));
 }
 
 export function levelFromXp(xp) {

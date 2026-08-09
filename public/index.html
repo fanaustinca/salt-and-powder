@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="theme-color" content="#05080c" />
+<!-- Rewritten by tools/build-static.js. If the console banner says "dev" on the
+     published site, the browser is serving a cached build, not this one. -->
+<meta name="build" content="dev" />
 <title>Salt &amp; Powder — Phase 1: Wind and Water</title>
 <style>
   :root {
@@ -101,6 +104,28 @@
   #lobbychip.gone b { color: var(--bad); letter-spacing: 1.4px; }
   #lobbychip:hover { border-color: var(--gold); }
   #lobbychip:hover .cp { opacity: 0.8; }
+
+  /* ---------- the Kraken's hull ---------- */
+  #krakenbar {
+    position: absolute; left: 50%; top: 92px; transform: translateX(-50%);
+    width: min(340px, 62vw); text-align: center;
+  }
+  #krakenbar[hidden] { display: none; }
+  #krakenbar .t {
+    font-size: 12px; letter-spacing: 4px; color: #d9a7e8; font-weight: 700;
+    text-shadow: 0 0 10px rgba(160,60,190,0.6);
+  }
+  #krakenbar .bar {
+    height: 11px; margin-top: 4px; border-radius: 6px; overflow: hidden;
+    background: rgba(0,0,0,0.55); border: 1px solid rgba(217,167,232,0.35);
+  }
+  #krakenbar .bar i {
+    display: block; height: 100%; width: 100%;
+    background: linear-gradient(90deg, #6a2f7a, #c05fd8);
+    transition: width 0.12s linear;
+  }
+  #krakenbar .n { font-size: 11px; opacity: 0.65; margin-top: 2px; letter-spacing: 1px; }
+  body.touch #krakenbar { top: auto; bottom: 96px; }
 
   /* ---------- touch controls ---------- */
   /* Only ever built on a device that actually reported a touch — see touch.js. */
@@ -437,6 +462,14 @@
     <div id="net">connecting…</div>
     <div id="seastate" class="panel"></div>
     <div id="lobbychip" hidden></div>
+
+    <!-- Her hull, while she is up. Without it you cannot tell whether your shot
+         is doing anything, which reads exactly like a monster that takes none. -->
+    <div id="krakenbar" hidden>
+      <div class="t">THE KRAKEN</div>
+      <div class="bar"><i></i></div>
+      <div class="n"></div>
+    </div>
     <div id="toasts"></div>
 
     <div id="alert" class="panel">

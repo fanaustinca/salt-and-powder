@@ -370,6 +370,24 @@ net.socket.on('disconnect', () => {
 // The lobby owns the join card and decides how we get to sea: this server, a
 // lobby hosted in this tab, or a data channel to somebody else's. By the time
 // it calls back, net.socket has a wire behind it.
+/**
+ * Say hello in the console, because that is where anyone looking for the cheats
+ * already is. "The cheats do not work" and "your browser is serving you a build
+ * from an hour ago" look identical from the outside — the stamp tells them
+ * apart, and the cheat state removes the other half of the guessing.
+ */
+function greet() {
+  const build = document.querySelector('meta[name="build"]')?.content || 'unknown';
+  console.log(
+    `%c⚓ Salt & Powder %cbuild ${build}`,
+    'font-weight:bold;font-size:13px;color:#e8b455', 'color:#8aa;font-size:11px',
+  );
+  if (!window.cheat?.kraken) {
+    console.warn('This build has no cheat.kraken(), so it is an old one your browser ' +
+      'has cached. Hard-refresh (Ctrl/Cmd+Shift+R) to pick up the current build.');
+  }
+}
+
 const lobby = new Lobby(net.socket, (name) => {
   myName = name;
   net.join(myName);
@@ -377,8 +395,18 @@ const lobby = new Lobby(net.socket, (name) => {
   canvas.focus();
 });
 lobby.open();
+// After the cheat table exists, so the stale-build check can actually see it.
+queueMicrotask(greet);
 
+let hostDev = false;
 net.onInit = (msg) => {
+  hostDev = !!msg.dev;
+  // Now we know for certain, rather than guessing from the URL — on the server
+  // route it is the server's PIRATE_DEV that decides, not anything this tab did.
+  console.log(hostDev
+    ? '%cCheats ON — type  cheat.help()'
+    : '%cCheats OFF — reopen with  ?dev=1  (remembered afterwards)',
+  `color:${hostDev ? '#7fd39b' : '#e07a5f'}`);
   const mine = msg.state.ships.find((s) => s.id === msg.id);
   me = createShip(msg.id, mine?.n || myName, 0, mine?.c || 'sailboat');
   if (mine) Object.assign(me, { x: mine.x, z: mine.z, heading: mine.h, throttle: mine.th ?? 0.6 });
@@ -650,6 +678,19 @@ frame();
  * validated and capped by the host, so typing a bigger number does not get you
  * a bigger number, and a client whose host has cheats off is simply ignored.
  */
+/**
+ * Refuse loudly rather than lie. Every cheat used to return a cheerful "+50000
+ * coins" whether or not the host would honour it, so a lobby with the hooks off
+ * looked exactly like a bug. The host tells us which it is in `init`.
+ */
+function cheatsLive() {
+  if (hostDev) return true;
+  console.warn('Cheats are OFF on this host. Reopen the page with ?dev=1 ' +
+    '(remembered afterwards), or start the server without PIRATE_DEV=0.');
+  return false;
+}
+const cheating = (fn) => (...args) => (cheatsLive() ? fn(...args) : 'cheats are off');
+
 window.cheat = {
   crowns: (n = 5000) => { net.socket.emit('grant-crowns', n); return `+${Math.min(n, 5000)} crowns`; },
   coins: (n = 50000) => { net.socket.emit('grant-coins', n); return `+${Math.min(n, 50000)} coins`; },
@@ -737,6 +778,11 @@ window.cheat = {
     'cheat.reset()': 'wipe this captain back to a bare sailboat',
   }),
 };
+
+// Everything that needs the host to play along says so when it will not.
+for (const [name, fn] of Object.entries(window.cheat)) {
+  if (name !== 'help' && name !== 'where') window.cheat[name] = cheating(fn);
+}
 
 window.__game = {
   scene, renderer, camera, sun, ocean, net, cam, remotes, shop,

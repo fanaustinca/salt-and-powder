@@ -49,6 +49,15 @@ await mkdir(out, { recursive: true });
 // The client, at the site root.
 await cp(from('public'), out, { recursive: true });
 
+// Stamp the build. "Do the cheats work?" and "is your browser showing you a
+// build from an hour ago?" are the same question far more often than not, and
+// without a stamp there is no way to tell them apart from a bug report.
+const stamp = process.env.GITHUB_SHA?.slice(0, 7)
+  || new Date().toISOString().replace('T', ' ').slice(0, 16);
+const html = await readFile(to('index.html'), 'utf8');
+await writeFile(to('index.html'),
+  html.replace(/<meta name="build" content="[^"]*"/, `<meta name="build" content="${stamp}"`));
+
 // The rules the client shares with whatever is hosting it. On Pages the
 // visiting browser may BE the host, so these are not optional extras.
 await cp(from('shared'), to('shared'), { recursive: true });

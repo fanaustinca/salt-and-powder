@@ -107,6 +107,10 @@ export class GameHost {
       profile,
       islands: ISLANDS,
       home: ship.home,
+      // Whether this host honours the dev hooks at all. Without it the console
+      // cheats cheerfully report success while the host quietly drops every one
+      // of them, which is indistinguishable from the cheats being broken.
+      dev: !!this.dev,
     });
     this.tx.broadcast('joined', { id: clientId, name });
     this.log(`[+] ${name} (${clientId}) — ${this.players.size} aboard`);
@@ -193,6 +197,7 @@ export class GameHost {
         leader: i === 0 ? null : flag,
         station: { along: 1.6 * i, across: (i % 2 ? 0.7 : -0.7) },
         patrolR: Math.hypot(ox, oz),
+        skill: plan.skill,       // green crews early on, worked up by level 25
       });
       if (i === 0) flag = ship;
       this.npcs.set(id, { ship, captain });
@@ -310,15 +315,21 @@ export class GameHost {
     // so a Kraken inside the ring is just an animation flailing at nobody.
     const open = [...this.players.values()]
       .map((p) => p.ship)
-      .filter((s) => !s.sunk && !inSafeWater(s.x, s.z));
+      // She does not come up under a beginner. A captain with one gun a side
+      // cannot fight her and cannot outrun her, so meeting her is not an event,
+      // it is a death. `cheat.kraken()` sets `krakenForced` to override this.
+      .filter((s) => !s.sunk && !inSafeWater(s.x, s.z)
+        && (this.krakenForced || (s.level || 1) >= KRAKEN.minLevel));
     if (!open.length) { this.nextKraken = t + 30; return; }
+    this.krakenForced = false;
     const victim = open[Math.floor(Math.random() * open.length)];
     let kx = victim.x + (Math.random() - 0.5) * 120;
     let kz = victim.z + (Math.random() - 0.5) * 120;
     if (inSafeWater(kx, kz)) { kx = victim.x; kz = victim.z; }
-    this.kraken = new Kraken(kx, kz, t);
+    // Sized to whoever she came up under, so she is a fight rather than a wall.
+    this.kraken = new Kraken(kx, kz, t, victim.level || 1);
     this.tx.broadcast('kraken-rises', { x: this.kraken.x, z: this.kraken.z });
-    this.log('[~] KRAKEN');
+    this.log(`[~] KRAKEN — ${this.kraken.maxHp} hull, for level ${victim.level || 1}`);
   }
 
   hitKraken(shot) {
@@ -506,6 +517,7 @@ export class GameHost {
       case 'dev-kraken':
         if (!this.dev) return;
         this.nextKraken = this.now();
+        this.krakenForced = true;   // summon her regardless of level
         return;
 
       case 'dev-picks': {

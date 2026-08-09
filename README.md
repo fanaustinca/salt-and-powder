@@ -186,15 +186,15 @@ slowly. `npm run tune` prints the whole table.
 
 ```
                         top   hull  guns/side  hold      cost   rig
-Sailboat              25 kn    100     3        8       free   1 mast, mainsail
-Cutter                26 kn    140     4       12        400   1 mast, jib + main
-Brigantine            24 kn    200     6       18      1,100   2 masts
-Corvette              23 kn    280     8       24      2,400   3 masts, square
-Frigate               22 kn    350    10       32      4,400   3 masts, 2 gun decks
-Galleon               19 kn    460    12       64      6,400   high stern castle, huge hold
+Sailboat              27 kn    100     3        8       free   1 mast, mainsail
+Cutter                28 kn    140     4       12        400   1 mast, jib + main
+Brigantine            26 kn    200     6       18      1,100   2 masts
+Corvette              24 kn    280     8       24      2,400   3 masts, square
+Frigate               23 kn    350    10       32      4,400   3 masts, 2 gun decks
+Galleon               20 kn    460    12       64      6,400   high stern castle, huge hold
 Man-of-War            21 kn    560    15       50      9,800   3 gun decks
 Flagship              19 kn    850    20       72     19,000   4 masts, 3 decks
-Leviathan             17 kn  1,250    28      104     38,000   4 masts, 4 decks
+Leviathan             18 kn  1,250    28      104     38,000   4 masts, 4 decks
 ```
 
 The **Cutter** is the quickest hull afloat for her size — a headsail is worth real
@@ -219,6 +219,30 @@ so `shared/rig.js` carries shape as well as size:
 `sheer` how far the rail sweeps up at the ends — the bulwark is built as a swept
 ribbon from those numbers rather than a constant-height extrusion, because the
 sheer line is most of what gives a hull its character.
+
+### The hull is lofted, not extruded
+
+Those numbers are all *plan view*. For a long time the mesh was a single
+`ExtrudeGeometry` of that outline pushed straight down — which is a prism:
+identical cross-section from rail to keel, vertical sides, the same bevel on
+every class. Nine ships, one hull, nine scales. The plan differed and the vessel
+did not.
+
+A hull's character is mostly in its **section**, so `hullHalfAt(rig, t, y)` now
+gives the breadth at a station *and a height*, and the mesh is lofted from it:
+
+| | tumblehome | flare | bilge | reads as |
+|---|---|---|---|---|
+| Cutter | none | strong | slack | a dry, flared little boat |
+| Frigate | slight | strong | **sharp V** | lean and fast |
+| **Galleon** | **enormous** | none | **full and round** | vast at the water, narrow on deck |
+| Man-of-War | heavy | slight | full | a wall of gunports leaning inboard |
+
+**The guns are placed against `hullHalfAt`, not `halfBeamAt`.** On a hull with
+tumblehome the side at gun height is most of a metre inboard of the waterline
+breadth, and placing a barrel from the wrong one puts it in mid-air — the same
+class of bug the muzzle test was written for. Deck, wales and the entry-port
+steps all follow the surface at their own height for the same reason.
 
 On top of that each class carries a **`features` list** of structures no other
 class has:
@@ -378,6 +402,19 @@ level 22   frigates and a corvette         gunnery 4, reload 3
 level 48   leviathans and flagships        crews fully worked up
 ```
 
+**Their guns scale with you, not with their hull.** This used to be a single
+number — every AI ship carried the maximum its class could — so a level-1
+captain, who is given exactly *one* gun a side, met cutters firing four. That one
+constant was most of the early difficulty curve. Crews are green early too, and
+a beginner meets one ship rather than a squadron:
+
+```
+level  1    1 x cutter        1 gun a side   crew skill 0.36
+level  6    3 x brigantine    3 a side       skill 0.46
+level 20    5 x frigate      10 a side       skill 0.75
+level 60    6 x leviathan    28 a side       skill 0.85
+```
+
 The Armada takes the heaviest hull the band allows, the Dutch the middle,
 freebooters the lightest but more of them, and a Treasure Fleet picks whatever
 in the band has the biggest hold — which is exactly why it is worth taking. They sail the same hulls under
@@ -397,7 +434,22 @@ they drift in, because no gun works in there.
 
 **The Kraken.** Eight arms, each one telegraphing before it lands. She surfaces
 near whoever is in open water, drags herself toward the nearest hull and slams.
-2,600 hull, and she is worth 900 XP and 260 Crowns.
+Worth 900 XP and 260 Crowns, and her hull is drawn on screen while she is up —
+without that you cannot tell whether your shot is doing anything, which reads
+exactly like a monster that takes none.
+
+She is **matched to whoever she comes up under**, and will not surface beside a
+captain under level 8 at all. At a flat 95 damage an arm she was doing about 140
+a second, which sinks a 1,250-hull Leviathan in nine — every hull in the game
+died at the same rate, so buying a bigger one bought you nothing against her. Her
+slam is a fraction of the hull it lands on now:
+
+```
+              your hull   her bite   seconds to sink you
+Sailboat            100          8                  30
+Frigate             350         19                  44
+Leviathan         1,250         58                  52
+```
 
 **Salvage, crafting and shot.** Wrecks spill timber, iron, powder and sulphur.
 Sail over it to take it aboard, then use the gunner's bench alongside any island:
@@ -532,6 +584,8 @@ node tools/cheat-test.js     # every console cheat, and the dev gate that hides 
 node tools/touch-test.js     # an emulated iPhone and iPad: helm, sail, tap-to-fire
 npm run tune                 # per class: top speed, time to reach it, rate of turn
 node tools/aground-test.js   # run her ashore, then get off again
+node tools/balance-test.js   # what a beginner meets, and the Kraken's numbers
+node tools/rig-shots.js      # photograph all nine hulls, and count their sails
 node tools/bot.js 3          # 3 headless crew bots so you can test alone
 node tools/smoke.js          # headless browser: joins, checks the helm answers
                              # correctly, summons a rogue wave, screenshots ./shots

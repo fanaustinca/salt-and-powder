@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { waterHeight } from '/shared/waves.js';
 import {
   rigOf, mastPositions, yardPlan, deckHeightsOf, gunPlacements, chaserPlacement,
-  barrelLength, gaffMasts, jibPlan, sheerAt, halfBeamAt,
+  barrelLength, gaffMasts, jibPlan, sheerAt, halfBeamAt, hullHalfAt,
+  deckHeight, keelDepth,
 } from '/shared/rig.js';
 
 const WOOD_DARK = 0x3a2a1d;
@@ -123,13 +124,16 @@ function sailMaterial(clsKey) {
  * profile the guns are placed against, so a barrel can never end up buried in
  * the hull amidships or hanging in the air at the bow.
  */
-function shapeOf(rig, scale = 1) {
+function shapeOf(rig, scale = 1, atHeight = null) {
   const N = 44;
   const s = new THREE.Shape();
   const pts = [];
   for (let i = 0; i <= N; i++) {
     const t = 1 - (i / N) * 2;                    // +1 bow -> -1 stern
-    pts.push([halfBeamAt(rig, t) * scale, t * (rig.L / 2) * scale]);
+    // A height means "the outline where the hull actually is at that height",
+    // which is what the deck and the wales need on a hull with tumblehome.
+    const hw = atHeight === null ? halfBeamAt(rig, t) : hullHalfAt(rig, t, atHeight);
+    pts.push([hw * scale, t * (rig.L / 2) * scale]);
   }
   s.moveTo(0, pts[0][1]);
   for (const [x, z] of pts) s.lineTo(-x, z);      // down the -X side
@@ -139,19 +143,65 @@ function shapeOf(rig, scale = 1) {
 
 // Hull geometry is expensive to build and identical for every ship of a class.
 const hullCache = new Map();
+
+/**
+ * The hull, lofted from `hullHalfAt` — sections that change shape with depth,
+ * not one outline pushed straight down.
+ *
+ * The old version was a single ExtrudeGeometry of the deck outline. That is a
+ * prism: identical cross-section from rail to keel, vertical sides, the same
+ * bevel on every class. Nine ships, one hull, nine scales. A galleon's whole
+ * character is that she is enormous at the waterline and narrow on deck, and a
+ * prism cannot express that at all.
+ *
+ * Stations run bow to stern, and each one is a section curve from the port rail
+ * down round the keel and up to the starboard rail, so the surface closes on
+ * itself and needs no bevel to look solid.
+ */
 function hullGeometry(rig) {
-  const key = `${rig.L}x${rig.B}x${rig.draft}x${rig.bow}x${rig.transom}`;
+  const key = [rig.L, rig.B, rig.draft, rig.decks, rig.bow, rig.transom,
+    rig.tumble, rig.flare, rig.bilge, rig.keelFrac].join('/');
   if (hullCache.has(key)) return hullCache.get(key);
-  const geo = new THREE.ExtrudeGeometry(shapeOf(rig), {
-    depth: rig.draft + rig.decks * 1.4,
-    bevelEnabled: true,
-    bevelSegments: 6,
-    bevelSize: rig.B * 0.14,
-    bevelThickness: rig.draft * 0.26,
-    curveSegments: 18,
-  });
-  geo.rotateX(Math.PI / 2);
-  geo.translate(0, rig.draft * 0.24 + rig.decks * 1.4, 0);
+
+  const N = 56;                      // stations along the keel
+  const M = 12;                      // levels from rail down to keel
+  const RING = 2 * M + 1;            // port side, keel, starboard side
+  const deck = deckHeight(rig);
+  const keel = keelDepth(rig);
+  const pos = [];
+  const idx = [];
+
+  const yAt = (j) => deck + (-keel - deck) * (j / M);
+  for (let i = 0; i <= N; i++) {
+    const t = 1 - (i / N) * 2;
+    const z = t * (rig.L / 2);
+    for (let r = 0; r < RING; r++) {
+      // r: 0..M down the port side, M..2M back up the starboard side.
+      const j = r <= M ? r : 2 * M - r;
+      const y = yAt(j);
+      // The keel is a line, not a plate, so the two sides meet cleanly.
+      const hw = j === M ? 0 : hullHalfAt(rig, t, y);
+      pos.push((r <= M ? hw : -hw), y, z);
+    }
+  }
+  for (let i = 0; i < N; i++) {
+    for (let r = 0; r < RING - 1; r++) {
+      const a = i * RING + r;
+      const b = a + RING;
+      idx.push(a, b, a + 1, a + 1, b, b + 1);
+    }
+  }
+
+  // The bow closes on itself (half-breadth goes to zero there); the stern does
+  // not, so cap the transom or you can see straight up inside her.
+  const sternRing = N * RING;
+  const centre = pos.length / 3;
+  pos.push(0, deck - (deck + keel) * 0.5, -rig.L / 2);
+  for (let r = 0; r < RING - 1; r++) idx.push(sternRing + r, centre, sternRing + r + 1);
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
   geo.computeVertexNormals();
   hullCache.set(key, geo);
   return geo;
@@ -185,7 +235,10 @@ export function buildShip(accent = 0xa8342c, clsKey = 'sailboat') {
   hull.castShadow = hull.receiveShadow = true;
   g.add(hull);
 
-  const deckGeo = new THREE.ShapeGeometry(shapeOf(rig, 0.95), 18);
+  // The deck is the outline AT DECK HEIGHT, which on a tumblehome hull is
+  // markedly narrower than the waterline — cut it from the waterline breadth
+  // and it overhangs her own topsides.
+  const deckGeo = new THREE.ShapeGeometry(shapeOf(rig, 0.97, deckY), 18);
   deckGeo.rotateX(-Math.PI / 2);
   add(deckGeo, MAT.deck, 0, deckY + 0.05, 0);
 
@@ -193,7 +246,7 @@ export function buildShip(accent = 0xa8342c, clsKey = 'sailboat') {
   // every big hull read as the same box — the sheer line is most of a ship's
   // character, and it is per class.
   {
-    const pts = shapeOf(rig).getPoints(90);
+    const pts = shapeOf(rig, 1, deckY).getPoints(90);
     const base = B * 0.13;
     const verts = [];
     const idx = [];
@@ -220,7 +273,9 @@ export function buildShip(accent = 0xa8342c, clsKey = 'sailboat') {
   // ---- wales: one painted band per gun deck -------------------------------
   const decks = deckHeightsOf(rig);
   decks.forEach((h, i) => {
-    const bandGeo = new THREE.ExtrudeGeometry(shapeOf(rig, 1.006), {
+    // Each wale follows the hull at its own height, so the bands lie ON her
+    // side and lean inboard as they climb rather than standing proud of it.
+    const bandGeo = new THREE.ExtrudeGeometry(shapeOf(rig, 1.008, h), {
       depth: 0.42, bevelEnabled: false, curveSegments: 18,
     });
     bandGeo.rotateX(Math.PI / 2);
@@ -517,12 +572,16 @@ export function buildShip(accent = 0xa8342c, clsKey = 'sailboat') {
 
   // An entry port: the decorated doorway amidships with steps down the side.
   if (has('entryport')) {
-    const side = halfBeamAt(rig, 0);
-    add(new THREE.BoxGeometry(0.4, B * 0.2, B * 0.16), MAT.port, side * 0.99, deckY - B * 0.06, 0);
-    add(new THREE.BoxGeometry(0.5, B * 0.24, B * 0.2), gold, side * 1.01, deckY - B * 0.06, 0);
+    // Every piece follows the hull at its own height, so the steps hug her side
+    // down the tumblehome instead of hanging off a vertical line.
+    const doorY = deckY - B * 0.06;
+    const side = hullHalfAt(rig, 0, doorY);
+    add(new THREE.BoxGeometry(0.4, B * 0.2, B * 0.16), MAT.port, side * 0.99, doorY, 0);
+    add(new THREE.BoxGeometry(0.5, B * 0.24, B * 0.2), gold, side * 1.01, doorY, 0);
     for (let k = 0; k < 5; k++) {
+      const y = deckY - B * 0.16 - k * B * 0.09;
       add(new THREE.BoxGeometry(0.6, 0.14, B * 0.1), MAT.dark,
-        side * 1.02, deckY - B * 0.16 - k * B * 0.09, 0);
+        hullHalfAt(rig, 0, y) * 1.02, y, 0);
     }
   }
 

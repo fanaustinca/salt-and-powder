@@ -27,8 +27,10 @@ export const FACTIONS = {
  * anything if the opposition climbs it with you.
  */
 export const LEVEL_BANDS = [
-  { upTo: 4,  hulls: ['sailboat', 'cutter'],                    size: [1, 2] },
-  { upTo: 9,  hulls: ['cutter', 'brigantine'],                  size: [1, 3] },
+  // A brand-new captain meets ONE ship, not a squadron. Being outnumbered while
+  // you still have a single gun a side is not a difficulty curve, it is a wall.
+  { upTo: 4,  hulls: ['sailboat', 'cutter'],                    size: [1, 1] },
+  { upTo: 9,  hulls: ['cutter', 'brigantine'],                  size: [1, 2] },
   { upTo: 16, hulls: ['brigantine', 'corvette'],                size: [2, 3] },
   { upTo: 24, hulls: ['corvette', 'frigate'],                   size: [2, 4] },
   { upTo: 34, hulls: ['frigate', 'galleon'],                    size: [2, 4] },
@@ -47,7 +49,10 @@ export function fleetFor(level, factionKey) {
   const f = FACTIONS[factionKey];
   const band = bandFor(level);
   const [lo, hi] = band.size;
-  const size = Math.max(1, Math.round(lo + (hi - lo) * Math.random()) + (f.escort || 0));
+  // Escorts only once the band is big enough to absorb them — an Armada's extra
+  // hull on top of a one-ship band put three sail on a beginner.
+  const escort = hi > 1 ? (f.escort || 0) : 0;
+  const size = Math.max(1, Math.round(lo + (hi - lo) * Math.random()) + escort);
 
   // A treasure fleet is not a squadron of warships — it is the fattest hold in
   // the band with a lighter escort, which is exactly why it is worth taking.
@@ -70,13 +75,22 @@ export function fleetFor(level, factionKey) {
   // Crews work up with the opposition, capped so they never out-talent a player.
   const ranks = Math.max(0, Math.floor(level / 5));
   const picks = {
-    broadside: 40,
+    // Guns scale with the PLAYER, not with what the hull could carry. This used
+    // to be 40 — i.e. always the hull's maximum — so a level-1 captain with the
+    // one gun a side the game gives you met cutters firing four. That single
+    // number was most of the early difficulty curve.
+    broadside: Math.max(0, Math.round((level - 1) * 0.45)),
     gunnery: Math.min(ranks, 8),
     reload: Math.min(Math.floor(level / 6), 8),
     hull: Math.min(ranks, 8),
     handling: Math.min(Math.floor(level / 7), 8),
   };
-  return { hulls, picks, size: hulls.length };
+
+  // Green crews shoot badly and are slow on the lanyard. A full-skill Dutch
+  // gunner is a fair fight at level 25; at level 1 he is an execution.
+  const skill = f.skill * (0.42 + 0.58 * Math.min(1, (level - 1) / 24));
+
+  return { hulls, picks, size: hulls.length, skill };
 }
 
 const IDEAL_RANGE = MAX_RANGE * 0.52;    // where a broadside actually tells
@@ -90,7 +104,9 @@ export class Captain {
   constructor(ship, faction, opts = {}) {
     this.ship = ship;
     this.faction = faction;
-    this.skill = FACTIONS[faction]?.skill ?? 0.7;
+    // fleetFor() works the crew up with the player's level; fall back to the
+    // faction's own figure for a captain raised outside a squadron.
+    this.skill = opts.skill ?? FACTIONS[faction]?.skill ?? 0.7;
     this.state = 'patrol';
     this.station = opts.station ?? null;   // offset from the flag, in hull lengths
     this.leader = opts.leader ?? null;
