@@ -405,6 +405,7 @@ model and one sea to keep honest.
 npm run build                # assemble dist/ — the static site Pages serves
 npm run test:host            # the whole game, no transport, no browser (fast)
 npm run test:rtc             # build, then two browsers over a real data channel
+node tools/live-check.js     # drive the PUBLISHED site with the real broker
 npm run tune                 # speed polar + what mistrimming costs
 node tools/bot.js 3          # 3 headless crew bots so you can test alone
 node tools/smoke.js          # headless browser: joins, checks the helm answers
