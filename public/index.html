@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>Salt &amp; Powder — Phase 1: Wind and Water</title>
+<style>
+  :root {
+    --ink: #f2e7cf;
+    --panel: rgba(14, 22, 30, 0.62);
+    --edge: rgba(242, 231, 207, 0.18);
+    --gold: #e8b455;
+    --good: #7fd39b;
+    --bad: #e07a5f;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #05080c; }
+  body {
+    font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    color: var(--ink);
+    -webkit-user-select: none; user-select: none;
+  }
+  canvas#scene { display: block; width: 100%; height: 100%; }
+
+  #ui { position: fixed; inset: 0; pointer-events: none; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--edge);
+    border-radius: 10px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    padding: 10px 12px;
+  }
+
+  /* ---------- join screen ---------- */
+  #join {
+    position: fixed; inset: 0; display: grid; place-items: center;
+    background: radial-gradient(ellipse at 50% 35%, #123 0%, #05080c 70%);
+    pointer-events: auto; z-index: 20;
+  }
+  #join .card { width: min(440px, 92vw); text-align: center; padding: 28px 26px 24px; }
+  #join h1 { margin: 0 0 2px; font-size: 30px; letter-spacing: 2px; color: var(--gold); font-weight: 600; }
+  #join .sub { margin: 0 0 20px; font-size: 13px; opacity: 0.62; letter-spacing: 1.4px; text-transform: uppercase; }
+  #join input {
+    width: 100%; padding: 11px 13px; font-size: 16px; font-family: inherit;
+    background: rgba(0,0,0,0.35); color: var(--ink);
+    border: 1px solid var(--edge); border-radius: 8px; outline: none; text-align: center;
+  }
+  #join input:focus { border-color: var(--gold); }
+  #join button {
+    margin-top: 12px; width: 100%; padding: 11px; font-size: 16px; font-family: inherit;
+    background: var(--gold); color: #1a1206; border: 0; border-radius: 8px; cursor: pointer; font-weight: 700;
+    letter-spacing: 1px;
+  }
+  #join button:hover { filter: brightness(1.08); }
+  #join .keys { margin-top: 18px; font-size: 12.5px; line-height: 1.85; opacity: 0.75; text-align: left; }
+  #join .keys b { color: var(--gold); font-weight: 600; }
+  #join .hint { margin-top: 14px; font-size: 12px; opacity: 0.5; font-style: italic; }
+
+  /* ---------- hud ---------- */
+  #hud { display: none; }
+  #hud.on { display: block; }
+
+  #dials { position: absolute; left: 16px; bottom: 16px; display: flex; gap: 12px; align-items: flex-end; }
+  #compass { width: 148px; height: 148px; display: block; }
+
+  #readout { min-width: 178px; font-variant-numeric: tabular-nums; }
+  #readout .row { display: flex; justify-content: space-between; gap: 14px; font-size: 13px; padding: 2px 0; }
+  #readout .k { opacity: 0.6; letter-spacing: 0.6px; }
+  #readout .v { font-weight: 600; }
+  #readout .big { font-size: 26px; line-height: 1.15; color: var(--gold); }
+  #readout hr { border: 0; border-top: 1px solid var(--edge); margin: 7px 0; }
+
+  .gauge { margin-top: 5px; }
+  .gauge .lbl { font-size: 11px; letter-spacing: 1px; opacity: 0.6; display: flex; justify-content: space-between; }
+  .gauge .bar { position: relative; height: 9px; margin-top: 3px; border-radius: 5px; background: rgba(0,0,0,0.45); overflow: hidden; }
+  .gauge .fill { position: absolute; inset: 0 auto 0 0; width: 0%; background: var(--gold); border-radius: 5px; transition: width 0.06s linear; }
+  .gauge .mark { position: absolute; top: -3px; width: 2px; height: 15px; background: var(--good); box-shadow: 0 0 6px var(--good); }
+  .gauge .bar { overflow: visible; }
+
+  #trimword { font-size: 12px; letter-spacing: 1.2px; text-align: center; margin-top: 6px; text-transform: uppercase; }
+
+  /* ---------- combat ---------- */
+  #battle { position: absolute; left: 50%; bottom: 52px; transform: translateX(-50%);
+    display: flex; gap: 10px; align-items: flex-end; }
+  .gun { text-align: center; min-width: 62px; padding: 6px 8px; }
+  .gun .n { font-size: 10.5px; letter-spacing: 1.4px; opacity: 0.55; }
+  .gun .k { font-size: 15px; font-weight: 700; color: var(--gold); }
+  .gun .bar { height: 4px; margin-top: 4px; border-radius: 3px; background: rgba(0,0,0,0.5); overflow: hidden; }
+  .gun .bar i { display: block; height: 100%; width: 100%; background: var(--good); }
+  .gun.loading .k { color: rgba(242,231,207,0.35); }
+  .gun.loading .bar i { background: var(--bad); }
+
+  #vitals { position: absolute; left: 50%; bottom: 118px; transform: translateX(-50%);
+    width: min(430px, 60vw); }
+  #vitals .hull { height: 13px; border-radius: 7px; background: rgba(0,0,0,0.55);
+    border: 1px solid var(--edge); overflow: hidden; position: relative; }
+  #vitals .hull i { display: block; height: 100%; width: 100%;
+    background: linear-gradient(90deg, #c8563f, #7fd39b); transition: width 0.15s; }
+  #vitals .hull span { position: absolute; inset: 0; text-align: center; font-size: 10px;
+    line-height: 13px; letter-spacing: 1.6px; text-shadow: 0 1px 3px #000; }
+  #vitals .xp { height: 4px; margin-top: 4px; border-radius: 3px; background: rgba(0,0,0,0.5); overflow: hidden; }
+  #vitals .xp i { display: block; height: 100%; width: 0%; background: var(--gold); }
+  #vitals .row { display: flex; justify-content: space-between; font-size: 11px;
+    opacity: 0.7; letter-spacing: 1px; margin-top: 3px; }
+
+  #talents { position: absolute; left: 16px; top: 100px; width: min(370px, calc(100vw - 32px));
+    /* stops clear of the speed readout below it; the list scrolls instead */
+    max-height: calc(100vh - 370px); overflow-y: auto; display: none; pointer-events: auto; z-index: 12; }
+  #talents.on { display: block; }
+  #talents h2 { margin: 0; font-size: 15px; letter-spacing: 2.4px; color: var(--gold); font-weight: 600; }
+  #talents .head { display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 1px solid var(--edge); padding-bottom: 8px; margin-bottom: 6px; }
+  #talents .head .bal { font-size: 12px; opacity: 0.75; }
+  #talents .head .bal b { color: var(--gold); font-size: 15px; }
+  #talclose { cursor: pointer; opacity: 0.5; font-size: 18px; line-height: 1; padding: 0 4px; }
+  #talclose:hover { opacity: 1; }
+  #talents .foot { font-size: 11px; opacity: 0.45; font-style: italic; margin-top: 8px;
+    border-top: 1px solid var(--edge); padding-top: 7px; }
+  #talents .grp { font-size: 10px; letter-spacing: 2px; opacity: 0.4; margin: 9px 0 3px; }
+
+  .tal { display: flex; align-items: center; gap: 10px; padding: 6px; border-radius: 6px;
+    border: 1px solid transparent; }
+  .tal.can { cursor: pointer; }
+  .tal.can:hover { background: rgba(232,180,85,0.09); border-color: rgba(232,180,85,0.35); }
+  .tal .txt { flex: 1; min-width: 0; }
+  .tal .txt b { display: block; font-size: 13px; font-weight: 600; }
+  .tal .txt i { display: block; font-size: 11px; opacity: 0.55; font-style: normal; }
+  .tal .pips { display: flex; gap: 3px; flex: none; }
+  .tal .pips s { width: 7px; height: 12px; border-radius: 2px; background: rgba(0,0,0,0.45);
+    border: 1px solid var(--edge); }
+  .tal .pips s.on { background: var(--gold); border-color: var(--gold); }
+  .tal .add { flex: none; width: 24px; height: 24px; border-radius: 5px; text-align: center;
+    line-height: 22px; font-weight: 700; background: var(--gold); color: #1a1206; }
+  .tal .rank { flex: none; font-size: 11.5px; opacity: 0.5; font-variant-numeric: tabular-nums; }
+  .tal .grp { flex: none; width: 40px; font-size: 9.5px; letter-spacing: 1.5px;
+    opacity: 0.45; text-align: right; }
+  .tal.card { cursor: pointer; border-color: var(--edge); background: rgba(232,180,85,0.07);
+    margin-bottom: 6px; padding: 10px 8px; }
+  .tal.card:hover { border-color: var(--gold); background: rgba(232,180,85,0.18); }
+  .tal.empty { opacity: 0.35; }
+  .tal.taken { opacity: 0.55; padding: 3px 6px; }
+  #talents .drawn { font-size: 10.5px; letter-spacing: 2px; opacity: 0.5; margin: 4px 0 7px; }
+  #talents .grpline { font-size: 9.5px; letter-spacing: 2px; opacity: 0.35;
+    margin: 12px 0 4px; border-top: 1px solid var(--edge); padding-top: 8px; }
+  #talents .nooffer { font-size: 12px; opacity: 0.55; font-style: italic; padding: 6px 2px; }
+  #talents .locked { font-size: 11px; opacity: 0.4; font-style: italic; margin-top: 8px;
+    border-top: 1px dashed var(--edge); padding-top: 7px; }
+  .tal.card .grp { width: 44px; }
+
+  /* Left, under the Crowns chip — the roster on the right grows with the fleet
+     and was sitting on top of this. */
+  #talalert { position: absolute; left: 16px; top: 62px; font-size: 12px; letter-spacing: 1px;
+    padding: 6px 11px; pointer-events: auto; cursor: pointer; display: none;
+    border-color: rgba(232,180,85,0.5); color: var(--gold); }
+  #talalert.on { display: block; animation: pulse 1.8s ease-in-out infinite; }
+
+  #dock { position: absolute; right: 16px; top: 128px; width: min(330px, calc(100vw - 32px));
+    display: none; pointer-events: auto; z-index: 13; }
+  #dock.on { display: block; }
+  #dock h2 { margin: 0; font-size: 15px; letter-spacing: 2px; color: var(--gold); font-weight: 600; }
+  #dock .head { display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 1px solid var(--edge); padding-bottom: 8px; margin-bottom: 8px; }
+  #dock .head .bal { font-size: 10.5px; letter-spacing: 1.6px; opacity: 0.55; }
+  #dock .foot { font-size: 11.5px; opacity: 0.6; font-style: italic; margin-top: 8px;
+    border-top: 1px solid var(--edge); padding-top: 7px; }
+  #dock button { display: block; width: 100%; margin-bottom: 6px; padding: 9px 11px;
+    font-family: inherit; font-size: 13px; text-align: left; cursor: pointer;
+    background: rgba(232,180,85,0.12); color: var(--ink);
+    border: 1px solid var(--edge); border-radius: 7px; }
+  #dock button:hover:not(:disabled) { border-color: var(--gold); background: rgba(232,180,85,0.2); }
+  #dock button:disabled { opacity: 0.4; cursor: default; }
+  #dock button b { color: var(--gold); float: right; font-weight: 700; }
+
+  #sunkmsg { position: absolute; left: 50%; top: 44%; transform: translate(-50%,-50%);
+    display: none; text-align: center; padding: 16px 30px; }
+  #sunkmsg.on { display: block; }
+  #sunkmsg .t { font-size: 24px; letter-spacing: 5px; color: var(--bad); font-weight: 700; }
+  #sunkmsg .d { font-size: 13px; opacity: 0.7; margin-top: 4px; }
+
+  #roster { position: absolute; right: 16px; top: 16px; min-width: 168px; font-size: 13px; }
+  #roster h3 { margin: 0 0 6px; font-size: 11px; letter-spacing: 1.6px; opacity: 0.55; text-transform: uppercase; font-weight: 600; }
+  #roster .p { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; }
+  #roster .p.me { color: var(--gold); }
+  #roster .p span:last-child { opacity: 0.65; font-variant-numeric: tabular-nums; }
+
+  #net { position: absolute; right: 16px; bottom: 16px; font-size: 11.5px; letter-spacing: 0.8px; opacity: 0.55; text-align: right; }
+
+  #toasts { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; align-items: center; }
+  .toast { font-size: 13px; padding: 6px 14px; animation: fade 4s forwards; }
+  @keyframes fade { 0%{opacity:0; transform:translateY(-6px);} 10%,70%{opacity:1; transform:none;} 100%{opacity:0;} }
+
+  #keys { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); font-size: 12px; opacity: 0.5; letter-spacing: 0.6px; }
+  #keys b { color: var(--gold); font-weight: 600; }
+
+  /* ---------- crowns + chandlery ---------- */
+  #crownchip {
+    position: absolute; left: 16px; top: 16px; pointer-events: auto; cursor: pointer;
+    font-size: 13px; letter-spacing: 0.8px; display: flex; align-items: center; gap: 8px;
+    padding: 7px 13px;
+  }
+  #crownchip:hover { border-color: var(--gold); }
+  #crownchip b { color: var(--gold); font-size: 15px; font-variant-numeric: tabular-nums; }
+  #crownchip span.k { opacity: 0.5; font-size: 11px; letter-spacing: 1.4px; }
+
+  #shop {
+    position: absolute; left: 16px; top: 62px; width: min(430px, calc(100vw - 32px));
+    /* stops short of the dials in the bottom-left; the list scrolls instead */
+    max-height: calc(100vh - 320px); overflow-y: auto; display: none; pointer-events: auto;
+  }
+  #shop.on { display: block; }
+  #shop h2 { margin: 0; font-size: 15px; letter-spacing: 2.4px; color: var(--gold); font-weight: 600; }
+  #shop .head { display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 1px solid var(--edge); padding-bottom: 8px; margin-bottom: 8px; }
+  #shop .head .bal { font-size: 12px; opacity: 0.7; }
+  #shop .head .bal b { color: var(--gold); }
+  #shopclose { cursor: pointer; opacity: 0.5; font-size: 18px; line-height: 1; padding: 0 4px; }
+  #shopclose:hover { opacity: 1; }
+
+  .item {
+    display: flex; align-items: center; gap: 11px; padding: 8px 6px; border-radius: 7px;
+    cursor: pointer; border: 1px solid transparent;
+  }
+  .item:hover { background: rgba(242,231,207,0.06); border-color: var(--edge); }
+  .item.worn { background: rgba(232,180,85,0.10); border-color: rgba(232,180,85,0.35); }
+  .item.poor { opacity: 0.45; }
+  .item .sw { width: 42px; height: 9px; border-radius: 5px; flex: none; }
+  .item .txt { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .item .txt b { font-size: 13.5px; font-weight: 600; }
+  .item .txt i { font-size: 11.5px; opacity: 0.55; font-style: italic; }
+  .item .buy {
+    flex: none; font-size: 12px; font-weight: 700; letter-spacing: 1px; padding: 4px 10px;
+    border-radius: 5px; background: var(--gold); color: #1a1206; min-width: 54px; text-align: center;
+  }
+  .item .buy.owned { background: transparent; color: var(--ink); border: 1px solid var(--edge); }
+
+  /* ---------- rogue wave warning ---------- */
+  #alert {
+    position: absolute; left: 50%; top: 64px; transform: translateX(-50%);
+    display: none; text-align: center; padding: 12px 26px;
+    border-color: rgba(224,122,95,0.55);
+    background: rgba(48, 14, 10, 0.72);
+    box-shadow: 0 0 34px rgba(224,122,95,0.22);
+  }
+  #alert.on { display: block; animation: pulse 1.6s ease-in-out infinite; }
+  #alert.brace { animation-duration: 0.5s; }
+  #alert .t { font-size: 20px; letter-spacing: 4px; color: #ffb59a; font-weight: 700; }
+  #alert .d { font-size: 13px; opacity: 0.85; margin-top: 3px; letter-spacing: 1.2px; }
+  @keyframes pulse { 0%,100% { opacity: 0.72; } 50% { opacity: 1; } }
+
+  /* Sits above the latency line, clear of a roster that grows with the fleet. */
+  #seastate { position: absolute; right: 16px; bottom: 38px; font-size: 11.5px;
+    letter-spacing: 1px; text-align: right; padding: 5px 10px; }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<div id="ui">
+  <div id="hud">
+    <div id="crownchip" class="panel" title="Chandlery (B)">
+      <span class="k">CROWNS</span><b id="crowns">0</b>
+      <span class="k" style="margin-left:8px">COINS</span><b id="coins">0</b>
+    </div>
+
+    <div id="shop" class="panel">
+      <div class="head">
+        <h2>CHANDLERY</h2>
+        <span class="bal"><b id="shopcrowns">0</b> crowns</span>
+        <span id="shopclose">✕</span>
+      </div>
+      <div id="shoplist"></div>
+    </div>
+
+    <div id="dials">
+      <canvas id="compass" width="296" height="296"></canvas>
+      <div id="readout" class="panel">
+        <div class="row"><span class="k">SPEED</span></div>
+        <div class="big"><span id="speed">0.0</span> <span style="font-size:13px;opacity:.6">kn</span></div>
+        <hr />
+        <div class="row"><span class="k">HEADING</span><span class="v" id="heading">000°</span></div>
+        <div class="row"><span class="k">SHIP</span><span class="v" id="shipclass">Sailboat</span></div>
+        <div class="row"><span class="k">HOLD</span><span class="v" id="cargotext">0 / 8</span></div>
+
+        <div class="gauge">
+          <div class="lbl"><span>THROTTLE</span><span id="thrpct">60%</span></div>
+          <div class="bar"><div class="fill" id="thrfill"></div></div>
+        </div>
+        <div id="trimword">—</div>
+      </div>
+    </div>
+
+    <div id="roster" class="panel">
+      <h3>Ships at sea</h3>
+      <div id="rosterlist"></div>
+    </div>
+
+    <div id="talalert" class="panel">TALENT POINT — press T</div>
+    <div id="net">connecting…</div>
+    <div id="seastate" class="panel"></div>
+    <div id="toasts"></div>
+
+    <div id="alert" class="panel">
+      <div class="t">TSUNAMI</div>
+      <div class="d" id="alertdetail">—</div>
+    </div>
+
+    <div id="vitals">
+      <div class="hull"><i id="hullbar"></i><span id="hulltext">100 / 100</span></div>
+      <div class="xp"><i id="xpbar"></i></div>
+      <div class="row"><span id="levtext">LEVEL 1</span><span id="barreltext">2 BARRELS</span></div>
+      <div class="row"><span id="ammotext">ROUND SHOT</span><span id="restext"></span></div>
+      <div class="row"><span id="fleettext"></span></div>
+    </div>
+
+    <div id="battle">
+      <div class="gun panel" id="gun-port"><div class="n">PORT</div><div class="k">Z</div>
+        <div class="bar"><i></i></div></div>
+      <div class="gun panel" id="gun-bow"><div class="n">BOW</div><div class="k">F</div>
+        <div class="bar"><i></i></div></div>
+      <div class="gun panel" id="gun-stern"><div class="n">STERN</div><div class="k">V</div>
+        <div class="bar"><i></i></div></div>
+      <div class="gun panel" id="gun-starboard"><div class="n">STBD</div><div class="k">X</div>
+        <div class="bar"><i></i></div></div>
+      <div class="gun panel" id="gun-tnt"><div class="n">BARREL</div><div class="k">R</div>
+        <div class="bar"><i></i></div></div>
+    </div>
+
+    <div id="talents" class="panel">
+      <div class="head">
+        <h2>TALENTS</h2>
+        <span class="bal"><b id="freepts">0</b> points</span>
+        <span id="talclose">✕</span>
+      </div>
+      <div id="tallist"></div>
+      <div class="foot">One card per section, dealt fresh each level. Take one.</div>
+    </div>
+
+    <div id="dock" class="panel">
+      <div class="head">
+        <h2 id="dockname">PORT ROYAL</h2>
+        <span class="bal" id="dockkind">SAFE HAVEN</span>
+      </div>
+      <div id="dockbody"></div>
+      <div class="foot" id="dockmsg">Come alongside and trade.</div>
+    </div>
+
+    <div id="sunkmsg" class="panel">
+      <div class="t">SUNK</div>
+      <div class="d" id="sunkdetail">Refitting…</div>
+    </div>
+
+    <div id="keys">
+      <b>A</b>/<b>D</b> helm &nbsp;·&nbsp; <b>W</b>/<b>S</b> throttle &nbsp;·&nbsp;
+      <b>click</b> to fire &nbsp;·&nbsp; <b>R</b> barrel &nbsp;·&nbsp;
+      <b>T</b> talents &nbsp;·&nbsp; <b>B</b> chandlery &nbsp;·&nbsp; drag to look
+    </div>
+  </div>
+</div>
+
+<div id="join">
+  <div class="card panel">
+    <h1>SALT &amp; POWDER</h1>
+    <p class="sub">Phase I — Wind and Water</p>
+    <input id="name" maxlength="16" placeholder="Your name" autocomplete="off" />
+    <button id="sail">SET SAIL</button>
+    <div class="keys">
+      <div><b>A</b> / <b>D</b> — put the helm over &nbsp;·&nbsp; <b>W</b> / <b>S</b> — throttle</div>
+      <div><b>Left click</b> — aim at the sea and fire</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<i>the guns that can bear will train round</i></div>
+      <div><b>R</b> — drop a TNT barrel astern</div>
+      <div><b>B</b> — chandlery &nbsp;·&nbsp; <b>Q</b> / <b>E</b> — trim by hand</div>
+    </div>
+    <p class="hint">Sink ships, scoop up the cargo they spill, and sell it at a Safe
+      Haven for Coins. Coins buy a bigger hull. Watch for rogue waves — and for
+      the rocks.</p>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+    "three": "/vendor/three/three.module.js",
+    "three/addons/": "/vendor/three/addons/"
+} }
+</script>
+<script type="module" src="/js/main.js"></script>
+</body>
+</html>

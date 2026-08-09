@@ -1,0 +1,21 @@
+{
+  "name": "pirate-game",
+  "version": "0.1.0",
+  "description": "Phase 1 - multiplayer 3D sailing: shared ocean, wind, sail sheeting",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "tune": "node tools/tune.js"
+  },
+  "dependencies": {
+    "compression": "^1.8.1",
+    "express": "^5.1.0",
+    "socket.io": "^4.8.3",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "puppeteer": "^25.5.0",
+    "socket.io-client": "^4.8.3"
+  }
+}

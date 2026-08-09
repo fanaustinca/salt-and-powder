@@ -1,0 +1,16 @@
+# Dependencies — 68 MB, restored by `npm install`
+node_modules/
+
+# Player profiles: captain names, Crowns, Coins, owned cosmetics.
+# Real people's save data — it does not belong in the repo.
+data/
+
+# Screenshots written by the headless test tools
+shots/
+
+# Logs and editor noise
+*.log
+npm-debug.log*
+.DS_Store
+.vscode/
+.idea/
