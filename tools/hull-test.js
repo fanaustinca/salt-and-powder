@@ -11,7 +11,9 @@
 //
 //   node tools/hull-test.js
 
-import { RIGS, rigOf, hullHalfAt, deckHeight, keelDepth, gunPlacements } from '../shared/rig.js';
+import {
+  RIGS, rigOf, halfBeamAt, hullHalfAt, deckHeight, keelDepth, gunPlacements,
+} from '../shared/rig.js';
 
 // A tiny stand-in for what ship.js builds, so this needs no browser. It must
 // stay in step with hullGeometry() — same rings, same winding.
@@ -41,7 +43,47 @@ function loft(rig) {
       idx.push(a, a + 1, b, a + 1, b + 1, b);
     }
   }
-  return { pos, idx, RING, N };
+  // The transom cap, which the first version of this test left out entirely —
+  // so it could not see the hole across the top of the stern.
+  const sternRing = N * RING;
+  const centre = pos.length / 3;
+  pos.push(0, deck - (deck + keel) * 0.5, -rig.L / 2);
+  for (let r = 0; r < RING; r++) {
+    idx.push(sternRing + ((r + 1) % RING), centre, sternRing + r);
+  }
+  return { pos, idx, RING, N, deck };
+}
+
+/**
+ * Edges used by only one triangle: the boundary of the surface.
+ *
+ * A hull should be open in exactly one place — the deck, which the deck mesh
+ * covers. A boundary edge anywhere BELOW the rail is a hole you can see
+ * through, which is what the missing transom was.
+ */
+function openEdges(pos, idx) {
+  // Key edges by POSITION, not by index. At the stem the half-breadth is zero,
+  // so the port and starboard rings hold coincident-but-separate vertices; an
+  // index-based map reads that seam as twenty-four holes when the surface is
+  // in fact closed there. Welding by position asks the question that matters:
+  // is there a gap you could see through?
+  const at = (i) => {
+    const [x, y, z] = V(pos, i);
+    return `${Math.round(x * 1000)},${Math.round(y * 1000)},${Math.round(z * 1000)}`;
+  };
+  const seen = new Map();
+  for (let f = 0; f < idx.length; f += 3) {
+    for (let e = 0; e < 3; e++) {
+      const a = at(idx[f + e]);
+      const b = at(idx[f + ((e + 1) % 3)]);
+      if (a === b) continue;                       // degenerate sliver
+      const key = a < b ? `${a}|${b}` : `${b}|${a}`;
+      const rec = seen.get(key) || { n: 0, pts: [V(pos, idx[f + e]), V(pos, idx[f + ((e + 1) % 3)])] };
+      rec.n++;
+      seen.set(key, rec);
+    }
+  }
+  return [...seen.values()].filter((r) => r.n === 1).map((r) => r.pts);
 }
 
 const V = (pos, i) => [pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]];
@@ -56,7 +98,15 @@ console.log('class         faces   inward   worst gun clearance   beam @ deck / 
 
 for (const cls of Object.keys(RIGS)) {
   const rig = rigOf(cls);
-  const { pos, idx } = loft(rig);
+  const { pos, idx, deck } = loft(rig);
+
+  // Holes. Anything open below the rail is somewhere you can see inside her.
+  const open = openEdges(pos, idx);
+  // The ONLY legitimate opening is the deck, whose boundary runs along the rail
+  // at deck height for the whole length. So an edge is a hole if EITHER end
+  // drops below the rail — not both. Requiring both let the missing transom
+  // through, because each of its two open edges had one end up at the rail.
+  const below = open.filter(([a, b]) => a[1] < deck - 0.05 || b[1] < deck - 0.05);
 
   let inward = 0;
   let faces = 0;
@@ -87,8 +137,14 @@ for (const cls of Object.keys(RIGS)) {
   const atDeck = hullHalfAt(rig, 0, deckHeight(rig)) * 2;
   const atWater = hullHalfAt(rig, 0, 0) * 2;
   console.log(`${cls.padEnd(12)} ${String(faces).padStart(6)} ${String(inward).padStart(8)}   ` +
-    `${worst.toFixed(3).padStart(18)}   ${atDeck.toFixed(1)} / ${atWater.toFixed(1)} m`);
+    `${worst.toFixed(3).padStart(18)}   ${atDeck.toFixed(1)} / ${atWater.toFixed(1)} m` +
+    `   holes below the rail: ${below.length}`);
 
+  if (below.length) {
+    const lowest = below.reduce((lo, [a]) => Math.min(lo, a[1]), Infinity);
+    problems.push(`${cls}: ${below.length} open edges below the rail (down to y=${lowest.toFixed(1)}) ` +
+      '— you can see inside her');
+  }
   if (inward > 0) {
     problems.push(`${cls}: ${inward} of ${faces} faces point inboard — you can see through her`);
   }
@@ -100,6 +156,39 @@ for (const cls of Object.keys(RIGS)) {
     problems.push(`${cls}: tumblehome barely shows (${atDeck.toFixed(1)} vs ${atWater.toFixed(1)} m)`);
   }
 }
+
+// --- the plan view: every class a different shape from above ----------------
+// Not just a different size. The widest point used to be pinned amidships for
+// everyone, so from a masthead they were one lens shape at nine scales.
+console.log('\nfrom above — breadth as a fraction of her beam, bow to stern:');
+console.log('class          L/B    t=.6  t=.2  t=-.2 t=-.6   widest at');
+const seen = new Map();
+for (const cls of Object.keys(RIGS)) {
+  const rig = rigOf(cls);
+  const at = (t) => (2 * halfBeamAt(rig, t)) / rig.B;
+  const sig = [0.6, 0.2, -0.2, -0.6].map((t) => at(t).toFixed(2));
+  // Where she is actually broadest, found rather than read off the table.
+  let best = -1;
+  let bestT = 0;
+  for (let t = -1; t <= 1; t += 0.01) {
+    const v = at(t);
+    if (v > best) { best = v; bestT = t; }
+  }
+  const ratio = rig.L / rig.B;
+  console.log(`${cls.padEnd(12)} ${ratio.toFixed(2).padStart(5)}   ` +
+    `${sig.join('  ')}   ${bestT.toFixed(2).padStart(6)}`);
+
+  const key = sig.join('/');
+  if (seen.has(key)) problems.push(`${cls} and ${seen.get(key)} have the same plan shape`);
+  seen.set(key, cls);
+}
+// And the fleet as a whole has to span a real range of proportions, or they all
+// read as the same hull however carefully each one is shaped.
+const ratios = Object.keys(RIGS).map((c) => rigOf(c).L / rigOf(c).B);
+const span = Math.max(...ratios) / Math.min(...ratios);
+console.log(`\nlength-to-beam spans ${Math.min(...ratios).toFixed(2)} to ` +
+  `${Math.max(...ratios).toFixed(2)} — a factor of ${span.toFixed(2)}`);
+if (span < 1.25) problems.push(`every hull is nearly the same proportion (factor ${span.toFixed(2)})`);
 
 console.log('');
 if (problems.length) {

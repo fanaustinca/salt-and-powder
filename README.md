@@ -221,6 +221,29 @@ so `shared/rig.js` carries shape as well as size:
 ribbon from those numbers rather than a constant-height extrusion, because the
 sheer line is most of what gives a hull its character.
 
+### From above, too
+
+`widest` says where along the keel she is broadest. Without it that point was
+pinned amidships for everyone, so from a masthead the fleet was one lens shape
+at nine scales. A galleon carries her beam well forward and runs away aft; a
+frigate's is abaft midships behind a long fine entry:
+
+```
+class          L/B    breadth at  t=.6  t=.2  t=-.2 t=-.6   widest at
+frigate       4.05                0.22  0.60  0.99  0.80      -0.14
+manofwar      3.67                0.48  0.86  0.98  0.91      +0.04
+galleon       3.02                0.71  1.00  0.98  0.93      +0.20
+```
+
+Length-to-beam now spans 3.02 to 4.05 — a factor of 1.34, where it used to be
+3.04 to 3.78. `hull-test.js` prints that table and fails if any two classes
+share a plan shape, or if the fleet's proportions collapse toward one number.
+
+`SHIP_CLASSES` no longer keeps its own copy of length and beam; it reads them
+off the rig table. They were duplicated, and `beam` feeds the grounding margin,
+so retuning the plan shapes would have silently left ships bouncing off beaches
+at the wrong distance.
+
 ### The hull is lofted, not extruded
 
 Those numbers are all *plan view*. For a long time the mesh was a single
@@ -245,11 +268,22 @@ breadth, and placing a barrel from the wrong one puts it in mid-air — the same
 class of bug the muzzle test was written for. Deck, wales and the entry-port
 steps all follow the surface at their own height for the same reason.
 
-`node tools/hull-test.js` checks each hull's triangles point *outward*. The
-lofted hull first shipped inside-out — the material is `FrontSide`, so 2,687 of
-2,688 faces were being culled and you looked straight through her side into the
-far one. That is invisible in a wireframe and invisible in a vertex count, and
-obvious only from exactly the right angle.
+`node tools/hull-test.js` checks each hull's triangles point *outward*, and that
+the only opening in the surface is the deck. Both of those shipped broken, in
+ways nothing else could see:
+
+- The lofted hull was **inside-out**. The material is `FrontSide`, so 2,687 of
+  2,688 faces were culled and you looked through her near side into the far one.
+- The **transom had a hole**. The cap is a fan from a centre point round the
+  stern ring, and it stopped one triangle short of closing, leaving a wedge open
+  across the top of the stern — the first thing you see from astern.
+
+Two things about that hole check are worth knowing if you touch it. It welds
+edges **by position**, because at the stem the half-breadth is zero and the port
+and starboard rings hold coincident-but-separate vertices — an index-based map
+calls that closed seam twenty-four holes. And an edge counts as a hole if
+*either* end is below the rail, not both: the missing transom's two open edges
+each had one end up at the rail, so requiring both let it straight through.
 
 ### The guns you see are the guns that fire
 

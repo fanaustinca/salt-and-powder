@@ -199,10 +199,17 @@ function hullGeometry(rig) {
 
   // The bow closes on itself (half-breadth goes to zero there); the stern does
   // not, so cap the transom or you can see straight up inside her.
+  //
+  // The fan has to go RIGHT ROUND the ring. Stopping at RING - 1 left the wedge
+  // between the two rails and the centre point uncovered — a hole across the
+  // top of the transom, which is the first thing you see from astern.
   const sternRing = N * RING;
   const centre = pos.length / 3;
   pos.push(0, deck - (deck + keel) * 0.5, -rig.L / 2);
-  for (let r = 0; r < RING - 1; r++) idx.push(sternRing + r + 1, centre, sternRing + r);
+  for (let r = 0; r < RING; r++) {
+    const next = (r + 1) % RING;          // wrap: rail to rail across the top
+    idx.push(sternRing + next, centre, sternRing + r);
+  }
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));

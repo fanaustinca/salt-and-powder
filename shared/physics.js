@@ -9,6 +9,7 @@
 //               mirrors the controls and the compass.
 import { SEA, tsunamiSlope } from './waves.js';
 import { statsFor } from './combat.js';
+import { rigOf } from './rig.js';
 
 const _slope = { x: 0, z: 0 };
 
@@ -99,6 +100,16 @@ export const SHIP_CLASSES = {
     maxBroadside: 28, cargo: 104,
   },
 };
+
+// Length and beam are the HULL's, so take them from the hull table rather than
+// keeping a second copy here. They were duplicated, and the moment the plan
+// shapes were retuned the two disagreed — with `beam` feeding the grounding
+// margin, a ship would have started bouncing off beaches at the wrong distance.
+for (const [key, c] of Object.entries(SHIP_CLASSES)) {
+  const rig = rigOf(key);
+  c.length = rig.L;
+  c.beam = rig.B;
+}
 
 // Quadratic drag chosen so each class actually settles at its stated top speed.
 for (const c of Object.values(SHIP_CLASSES)) {

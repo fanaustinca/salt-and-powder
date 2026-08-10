@@ -19,55 +19,55 @@ export const RIGS = {
   sailboat: {
     L: 14, B: 4.6, draft: 2.3, decks: 1, masts: 1, yards: 0, gaff: 1, jib: 0,
     quarter: 0.0, forecastle: 0.0, gallery: 0, mastH: 13, guns: 3,
-    bow: 0.72, transom: 0.78, sheer: 0.5, castle: 0, beak: 0, mizzen: 'gaff', rake: 0.03,
-    tumble: 0.02, flare: 0.10, bilge: 0.72, keelFrac: 0.11,
+    bow: 0.95, transom: 0.80, sheer: 0.5, castle: 0, beak: 0, mizzen: 'gaff', rake: 0.03,
+    widest: 0.00, tumble: 0.02, flare: 0.10, bilge: 0.72, keelFrac: 0.11,
     features: ['openboat','tiller'],
   },
   cutter: {
-    L: 17, B: 5.4, draft: 2.6, decks: 1, masts: 1, yards: 0, gaff: 1, jib: 1,
+    L: 17, B: 4.9, draft: 2.6, decks: 1, masts: 1, yards: 0, gaff: 1, jib: 1,
     quarter: 0.5, forecastle: 0.0, gallery: 0.2, mastH: 16, guns: 4,
-    bow: 0.62, transom: 0.70, sheer: 0.7, castle: 1, beak: 0, mizzen: 'gaff', rake: 0.06,
-    tumble: 0.04, flare: 0.16, bilge: 0.95, keelFrac: 0.08,
+    bow: 0.40, transom: 0.50, sheer: 0.7, castle: 1, beak: 0, mizzen: 'gaff', rake: 0.06,
+    widest: -0.06, tumble: 0.04, flare: 0.16, bilge: 0.95, keelFrac: 0.08,
     features: ['deckhouse','longsprit','tiller'],
   },
   brigantine: {
-    L: 22, B: 6.6, draft: 3.0, decks: 1, masts: 2, yards: 0, gaff: 2, jib: 1,
+    L: 22, B: 6.3, draft: 3.0, decks: 1, masts: 2, yards: 0, gaff: 2, jib: 1,
     quarter: 0.9, forecastle: 0.5, gallery: 0.4, mastH: 18, guns: 6,
-    bow: 0.68, transom: 0.74, sheer: 0.9, castle: 1, beak: 0, mizzen: 'gaff', rake: 0.05,
-    tumble: 0.07, flare: 0.09, bilge: 0.80, keelFrac: 0.10,
+    bow: 0.75, transom: 0.62, sheer: 0.9, castle: 1, beak: 0, mizzen: 'gaff', rake: 0.05,
+    widest: 0.02, tumble: 0.07, flare: 0.09, bilge: 0.80, keelFrac: 0.10,
     features: ['deckhouse','davits','nettings'],
   },
   corvette: {
     // Sleek and low: a fine entry, flat sheer, one light quarterdeck.
-    L: 27, B: 7.8, draft: 3.4, decks: 1, masts: 3, yards: 2, gaff: 1, jib: 1,
+    L: 27, B: 7.0, draft: 3.4, decks: 1, masts: 3, yards: 2, gaff: 1, jib: 1,
     quarter: 1.2, forecastle: 0.7, gallery: 0.7, mastH: 21, guns: 8,
-    bow: 0.58, transom: 0.62, sheer: 0.6, castle: 1, beak: 0, mizzen: 'gaff', rake: 0.04,
-    tumble: 0.11, flare: 0.12, bilge: 1.15, keelFrac: 0.07,
+    bow: 0.35, transom: 0.48, sheer: 0.6, castle: 1, beak: 0, mizzen: 'gaff', rake: 0.04,
+    widest: -0.10, tumble: 0.11, flare: 0.12, bilge: 1.15, keelFrac: 0.07,
     features: ['flushdeck','nettings','boats'],
   },
   frigate: {
     // Longer and finer still — the greyhound of the line.
-    L: 32, B: 9.0, draft: 3.8, decks: 2, masts: 3, yards: 3, gaff: 1, jib: 2,
+    L: 32, B: 7.9, draft: 3.8, decks: 2, masts: 3, yards: 3, gaff: 1, jib: 2,
     quarter: 1.5, forecastle: 0.9, gallery: 0.9, mastH: 24, guns: 10,
-    bow: 0.52, transom: 0.56, sheer: 0.5, castle: 1, beak: 0, mizzen: 'gaff', rake: 0.02,
-    tumble: 0.14, flare: 0.14, bilge: 1.38, keelFrac: 0.06,
+    bow: 0.20, transom: 0.42, sheer: 0.5, castle: 1, beak: 0, mizzen: 'gaff', rake: 0.02,
+    widest: -0.14, tumble: 0.14, flare: 0.14, bilge: 1.38, keelFrac: 0.06,
     features: ['quarterdeck','boats','nettings','entryport'],
   },
   galleon: {
     // Bluff-bowed, slab-sterned, enormous sheer, a three-step aftercastle, a
     // beakhead forward and a lateen on the mizzen. Nothing else looks like her.
-    L: 38, B: 10.8, draft: 4.2, decks: 2, masts: 3, yards: 3, gaff: 1, jib: 1,
+    L: 38, B: 12.6, draft: 4.2, decks: 2, masts: 3, yards: 3, gaff: 1, jib: 1,
     quarter: 2.6, forecastle: 2.4, gallery: 3.2, mastH: 26, guns: 12,
-    bow: 1.02, transom: 1.00, sheer: 3.2, castle: 3, beak: 1, mizzen: 'lateen', rake: 0.13,
-    tumble: 0.36, flare: 0.02, bilge: 0.52, keelFrac: 0.15,
+    bow: 1.15, transom: 0.86, sheer: 3.2, castle: 3, beak: 1, mizzen: 'lateen', rake: 0.13,
+    widest: 0.20, tumble: 0.36, flare: 0.02, bilge: 0.52, keelFrac: 0.15,
     features: ['beakhead','galleries','lateenrig','lanterns'],
   },
   manofwar: {
     // Beamy and square, a long flush quarterdeck with a poop above it.
     L: 44, B: 12.0, draft: 4.8, decks: 3, masts: 3, yards: 3, gaff: 1, jib: 2,
     quarter: 2.2, forecastle: 1.3, gallery: 1.5, mastH: 30, guns: 15,
-    bow: 0.80, transom: 0.86, sheer: 1.2, castle: 2, beak: 0, mizzen: 'gaff', rake: 0.05,
-    tumble: 0.27, flare: 0.04, bilge: 0.70, keelFrac: 0.12,
+    bow: 0.80, transom: 0.80, sheer: 1.2, castle: 2, beak: 0, mizzen: 'gaff', rake: 0.05,
+    widest: 0.04, tumble: 0.27, flare: 0.04, bilge: 0.70, keelFrac: 0.12,
     features: ['poop','quartergalleries','entryport','boats','lanterns'],
   },
   // The two biggest are rigged square on all four masts: no headsails on the
@@ -75,17 +75,17 @@ export const RIGS = {
   // stacked yards. `gaff: 0` hands the aftmost mast its square yards back —
   // ship.js only skips a mast's yards when it is carrying a gaff or a lateen.
   flagship: {
-    L: 56, B: 15.0, draft: 5.6, decks: 3, masts: 4, yards: 4, gaff: 0, jib: 0,
+    L: 56, B: 15.4, draft: 5.6, decks: 3, masts: 4, yards: 4, gaff: 0, jib: 0,
     quarter: 2.8, forecastle: 1.7, gallery: 2.0, mastH: 37, guns: 20,
-    bow: 0.74, transom: 0.90, sheer: 1.4, castle: 2, beak: 0, mizzen: 'none', rake: 0.06,
-    tumble: 0.30, flare: 0.05, bilge: 0.66, keelFrac: 0.12,
+    bow: 0.85, transom: 0.86, sheer: 1.4, castle: 2, beak: 0, mizzen: 'none', rake: 0.06,
+    widest: 0.00, tumble: 0.30, flare: 0.05, bilge: 0.66, keelFrac: 0.12,
     features: ['poop','quartergalleries','entryport','boats','lanterns','carvedstern'],
   },
   leviathan: {
     L: 68, B: 18.0, draft: 6.4, decks: 4, masts: 4, yards: 4, gaff: 0, jib: 0,
     quarter: 3.2, forecastle: 2.0, gallery: 2.8, mastH: 44, guns: 28,
-    bow: 0.86, transom: 0.98, sheer: 1.8, castle: 3, beak: 0, mizzen: 'none', rake: 0.08,
-    tumble: 0.32, flare: 0.06, bilge: 0.60, keelFrac: 0.13,
+    bow: 1.00, transom: 0.90, sheer: 1.8, castle: 3, beak: 0, mizzen: 'none', rake: 0.08,
+    widest: 0.10, tumble: 0.32, flare: 0.06, bilge: 0.60, keelFrac: 0.13,
     features: ['poop','quartergalleries','entryport','boats','lanterns','carvedstern','rambow'],
   },
 };
@@ -99,13 +99,20 @@ export const RIGS = {
  */
 export function halfBeamAt(rig, t) {
   const hb = rig.B / 2;
-  if (t >= 0) {
-    // Forward: a fine bow fines away fast, a bluff one carries its beam on.
+  // Where she is broadest, -1 stern .. +1 bow. This is the other half of the
+  // plan view: with the widest point pinned amidships every class was the same
+  // lens shape from above, only longer or wider. A galleon carries her beam
+  // well forward and runs away aft; a frigate's is abaft midships with a long
+  // fine entry. Zero reproduces the old behaviour exactly.
+  const w = rig.widest ?? 0;
+  if (t >= w) {
+    // Forward of it: a fine bow fines away fast, a bluff one carries its beam on.
+    const a = (t - w) / Math.max(0.05, 1 - w);
     const k = Math.max(0.4, 1.65 - rig.bow);
-    return hb * Math.pow(Math.max(0, 1 - t), k);
+    return hb * Math.pow(Math.max(0, 1 - a), k);
   }
-  // Aft: tapers to the transom width at the stern.
-  const a = Math.min(1, -t);
+  // Abaft it: tapers to the transom width at the stern.
+  const a = Math.min(1, (w - t) / Math.max(0.05, w + 1));
   return hb * (1 - (1 - rig.transom) * Math.pow(a, 1.7));
 }
 

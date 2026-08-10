@@ -111,6 +111,27 @@ for (const cls of CLASSES) {
   });
   await page.screenshot({ path: `${OUT}/bow-${cls}.png` });
 
+  // And straight down, with the rig hidden — the plan view is a hull's other
+  // signature, and it is the one thing neither of the other two shots shows.
+  await page.evaluate(() => {
+    const { THREE, s, cam } = window.__rig;
+    const hull = s.children.find((c) => c.userData.hull);
+    hull.traverse((o) => {
+      if (o.isMesh && o.position.y > 6) { o.userData.hidden = true; o.visible = false; }
+    });
+    const box = new THREE.Box3().setFromObject(hull);
+    const size = box.getSize(new THREE.Vector3());
+    const mid = box.getCenter(new THREE.Vector3());
+    cam.position.set(mid.x, mid.y + Math.max(size.z, size.x) * 1.5, mid.z);
+    cam.up.set(0, 0, 1);
+    cam.lookAt(mid.x, mid.y, mid.z);
+    cam.updateProjectionMatrix();
+    window.__game.renderer.render(s, cam);
+    hull.traverse((o) => { if (o.userData.hidden) o.visible = true; });
+    cam.up.set(0, 1, 0);
+  });
+  await page.screenshot({ path: `${OUT}/plan-${cls}.png` });
+
   const sq = info.kinds.square || 0;
   const fa = (info.kinds.gaff || 0);
   console.log(`${cls.padEnd(12)} ${String(info.masts).padStart(3)}  ` +
