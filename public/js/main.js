@@ -577,6 +577,19 @@ function syncRemotes(others, t, dt) {
 }
 
 /** One ship's visuals: float the hull, swing the boom, shape the canvas. */
+/**
+ * Where the wake is laid: astern of the transom, not under the ship.
+ *
+ * It used to be fed the hull's centre, so the newest half of the ribbon lay
+ * *inside* her — a double-sided, depth-write-off plane at waterline height,
+ * cutting out through the topsides. In a bought trail's colour it read as a
+ * coloured sheet stuck through the hull, on every ship in the world.
+ */
+function wakeOrigin(x, z, heading, rig) {
+  const astern = (rig?.L ?? 14) * 0.52;
+  return [x - Math.sin(heading) * astern, z - Math.cos(heading) * astern];
+}
+
 function drawShip(vis, wake, x, z, heading, speed, t, dt, s) {
   if (!vis) return;
   // She leans into a turn now rather than to the wind.
@@ -593,7 +606,7 @@ function drawShip(vis, wake, x, z, heading, speed, t, dt, s) {
     if (k > 0.02 && Math.random() < 0.25) {
       fx.smoke(x + (Math.random() - 0.5) * 6, 0.6, z + (Math.random() - 0.5) * 6, 2.2, 1.2, 0xdfe6ea);
     }
-    wake.update(x, z, heading, 0, t, dt);
+    wake.update(...wakeOrigin(x, z, heading, vis.rig), heading, 0, t, dt);
     return;
   }
   vis.sunkSince = null;
@@ -605,7 +618,7 @@ function drawShip(vis, wake, x, z, heading, speed, t, dt, s) {
   animatePennant(vis, Math.PI, 0.7, t);
   vis.tiller.rotation.y = -(s.rudder || 0) * 0.4;
 
-  wake.update(x, z, heading, speed, t, dt);
+  wake.update(...wakeOrigin(x, z, heading, vis.rig), heading, speed, t, dt);
 }
 
 function updateCamera(dt, t) {

@@ -81,6 +81,29 @@ if (helm.disturbed) {
 }
 
 await wait(2500);
+
+// --- the wake must be laid ASTERN, not under her -----------------------------
+// It used to be fed the hull's centre, so the newest half of the ribbon lay
+// inside the ship — a double-sided plane at waterline height poking out through
+// her topsides, in whatever colour the trail happened to be.
+const wake = await page.evaluate(() => {
+  const g = window.__game;
+  const pts = g.myWakeRef?.points ?? [];
+  if (!pts.length || !g.me) return null;
+  const newest = pts[pts.length - 1];
+  // Distance along the keel from the ship's centre: negative is astern.
+  const along = (newest.x - g.me.x) * Math.sin(g.me.heading)
+    + (newest.z - g.me.z) * Math.cos(g.me.heading);
+  return { along: +along.toFixed(1), halfLength: +(g.myVisual.rig.L / 2).toFixed(1) };
+});
+console.log(wake
+  ? `wake laid ${(-wake.along).toFixed(1)} m astern of centre (transom is at ${wake.halfLength})`
+  : 'wake: no points yet');
+if (wake && -wake.along < wake.halfLength * 0.9) {
+  errors.push(`the wake is being laid ${-wake.along} m astern, inside a hull ` +
+    `${wake.halfLength * 2} m long — it will show through her side`);
+}
+
 await page.screenshot({ path: `${OUT}/sailing.png` });
 
 // --- rogue wave -------------------------------------------------------------

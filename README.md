@@ -177,6 +177,13 @@ heading makes the same speed, so you steer and shoot rather than manage a rig.
 There is **no astern** either: a sailing ship cannot back up, so she takes a
 while to gather way and a while to lose it. Plan your approach to a jetty.
 
+**Top speeds were doubled**, which is worth reading the consequences of before
+touching them again. `drag` is derived as `accel / maxSpeed²`, so doubling the
+top speed quarters the drag: a sailboat now takes **11.5 s** to reach nine
+tenths of her speed where she took 6.3, and a Leviathan 18.7 s. And `turn` is a
+rate rather than a radius, so at twice the speed and the same rate of turn every
+turning circle is twice as wide. `npm run tune` prints all of it.
+
 **She turns better with way on, but she always turns.** Rate of turn scales with
 speed — measured at about 2.9× flat out versus dead in the water, on every class
 — because a rudder needs water moving past it. It does *not* go to zero, though,
@@ -187,15 +194,15 @@ slowly. `npm run tune` prints the whole table.
 
 ```
                         top   hull  guns/side  hold      cost   rig
-Sailboat              27 kn    100     3        8       free   1 mast, mainsail
-Cutter                28 kn    140     4       12        400   1 mast, jib + main
-Brigantine            26 kn    200     6       18      1,100   2 masts
-Corvette              24 kn    280     8       24      2,400   3 masts, square
-Frigate               23 kn    350    10       32      4,400   3 masts, 2 gun decks
-Galleon               20 kn    460    12       64      6,400   high stern castle, huge hold
-Man-of-War            21 kn    560    15       50      9,800   3 gun decks
-Flagship              19 kn    850    20       72     19,000   4 masts, 3 decks
-Leviathan             18 kn  1,250    28      104     38,000   4 masts, 4 decks
+Sailboat              48 kn    100     3        8       free   1 mast, mainsail
+Cutter                51 kn    140     4       12        400   1 mast, jib + main
+Brigantine            46 kn    200     6       18      1,100   2 masts
+Corvette              43 kn    280     8       24      2,400   3 masts, square
+Frigate               41 kn    350    10       32      4,400   3 masts, 2 gun decks
+Galleon               36 kn    460    12       64      6,400   high stern castle, huge hold
+Man-of-War            36 kn    560    15       50      9,800   3 gun decks
+Flagship              32 kn    850    20       72     19,000   4 masts, 3 decks
+Leviathan             30 kn  1,250    28      104     38,000   4 masts, 4 decks
 ```
 
 The **Cutter** is the quickest hull afloat for her size — a headsail is worth real

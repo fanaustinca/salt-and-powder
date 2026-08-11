@@ -34,69 +34,78 @@ export const WORLD = {
 
 /**
  * The ladder. Bigger ships hit harder and carry more, and pay for it in speed
- * and turning. Top speeds are in m/s — a sailboat's 15 is about 29 knots, which
- * is a bit over one ship length a second and reads as genuinely quick.
+ * and turning. Top speeds are in m/s — a sailboat's 30 is about 59 knots, which
+ * is two ship lengths a second: nothing like a real sailing ship, and quick
+ * enough that the chart stops feeling large.
  *
- * Everything gained roughly 17% on top speed and 30% on acceleration, because
- * the old numbers made crossing open water a chore and left a stern chase
- * feeling like neither ship was trying. Drag is derived from these two below,
- * so a class always settles at exactly the top speed written here.
+ * These were doubled outright. Three things fall out of that, all measurable
+ * with `npm run tune`, and all worth knowing before touching them again:
+ *
+ *  - The figure here is the balance of thrust against QUADRATIC drag alone.
+ *    There is also a 5%/s linear term, and at a quarter of the drag it takes a
+ *    much bigger bite: doubling this column multiplies the speed a ship
+ *    actually settles at by about 1.8, not by 2.
+ *  - `drag` is DERIVED below as accel / maxSpeed², so doubling the top speed
+ *    quarters the drag and roughly doubles the time to reach it. A sailboat
+ *    takes 11.5 s to reach nine tenths of her top speed, where she took 6.3.
+ *  - `turn` is a rate, not a radius, and was left alone. Twice the speed at the
+ *    same rate of turn is a turning circle twice as wide.
  */
 export const SHIP_CLASSES = {
   sailboat: {
     name: 'Sailboat', tier: 0, cost: 0,
     length: 14, beam: 4.6,
-    hp: 100, maxSpeed: 15.2, accel: 3.8, turn: 1.55, angDamp: 3.00,
+    hp: 100, maxSpeed: 30.4, accel: 3.8, turn: 1.55, angDamp: 3.00,
     maxBroadside: 3, cargo: 8,
   },
   cutter: {
     name: 'Cutter', tier: 1, cost: 400,
     length: 17, beam: 5.4,
     // A cutter's headsail makes her the quickest thing afloat for her size.
-    hp: 140, maxSpeed: 15.9, accel: 4.0, turn: 1.50, angDamp: 2.95,
+    hp: 140, maxSpeed: 31.8, accel: 4.0, turn: 1.50, angDamp: 2.95,
     maxBroadside: 4, cargo: 12,
   },
   brigantine: {
     name: 'Brigantine', tier: 2, cost: 1100,
     length: 22, beam: 6.6,
-    hp: 200, maxSpeed: 14.8, accel: 3.2, turn: 1.22, angDamp: 2.70,
+    hp: 200, maxSpeed: 29.6, accel: 3.2, turn: 1.22, angDamp: 2.70,
     maxBroadside: 6, cargo: 18,
   },
   corvette: {
     name: 'Corvette', tier: 3, cost: 2400,
     length: 27, beam: 7.8,
-    hp: 280, maxSpeed: 14.1, accel: 2.9, turn: 1.10, angDamp: 2.55,
+    hp: 280, maxSpeed: 28.2, accel: 2.9, turn: 1.10, angDamp: 2.55,
     maxBroadside: 8, cargo: 24,
   },
   frigate: {
     name: 'Frigate', tier: 4, cost: 4400,
     length: 32, beam: 9.0,
-    hp: 350, maxSpeed: 13.5, accel: 2.6, turn: 0.98, angDamp: 2.40,
+    hp: 350, maxSpeed: 27.0, accel: 2.6, turn: 0.98, angDamp: 2.40,
     maxBroadside: 10, cargo: 32,
   },
   galleon: {
     name: 'Galleon', tier: 5, cost: 6400,
     length: 38, beam: 10.8,
     // Tubby and slow, but she carries a fortune and towers over a frigate.
-    hp: 460, maxSpeed: 11.9, accel: 2.3, turn: 0.86, angDamp: 2.25,
+    hp: 460, maxSpeed: 23.8, accel: 2.3, turn: 0.86, angDamp: 2.25,
     maxBroadside: 12, cargo: 64,
   },
   manofwar: {
     name: 'Man-of-War', tier: 6, cost: 9800,
     length: 44, beam: 12.0,
-    hp: 560, maxSpeed: 12.6, accel: 2.1, turn: 0.78, angDamp: 2.10,
+    hp: 560, maxSpeed: 25.2, accel: 2.1, turn: 0.78, angDamp: 2.10,
     maxBroadside: 15, cargo: 50,
   },
   flagship: {
     name: 'Flagship', tier: 7, cost: 19000,
     length: 56, beam: 15.0,
-    hp: 850, maxSpeed: 11.7, accel: 1.7, turn: 0.62, angDamp: 1.90,
+    hp: 850, maxSpeed: 23.4, accel: 1.7, turn: 0.62, angDamp: 1.90,
     maxBroadside: 20, cargo: 72,
   },
   leviathan: {
     name: 'Leviathan', tier: 8, cost: 38000,
     length: 68, beam: 18.0,
-    hp: 1250, maxSpeed: 10.8, accel: 1.5, turn: 0.52, angDamp: 1.80,
+    hp: 1250, maxSpeed: 21.6, accel: 1.5, turn: 0.52, angDamp: 1.80,
     maxBroadside: 28, cargo: 104,
   },
 };
